@@ -1,0 +1,95 @@
+;;; ----------------------------------------------------------------------
+;;; Copyright 2016 Alexey Radul and Gerald Jay Sussman
+;;; ----------------------------------------------------------------------
+;;; This file is part of New Artistic Propagator Prototype.  It is
+;;; derived from the Artistic Propagator Prototype previously
+;;; developed by Alexey Radul and Gerald Jay Sussman.
+;;; 
+;;; New Artistic Propagator Prototype is free software; you can
+;;; redistribute it and/or modify it under the terms of the GNU
+;;; General Public License as published by the Free Software
+;;; Foundation, either version 3 of the License, or (at your option)
+;;; any later version.
+;;; 
+;;; New Artistic Propagator Prototype is distributed in the hope that it
+;;; will be useful, but WITHOUT ANY WARRANTY; without even the implied
+;;; warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+;;; See the GNU General Public License for more details.
+;;; 
+;;; You should have received a copy of the GNU General Public License
+;;; along with New Artistic Propagator Prototype.  If not, see
+;;; <http://www.gnu.org/licenses/>.
+;;; ----------------------------------------------------------------------
+
+;;; To load the full system, either load this file with
+;;; (load "path/to/load-published.scm") or change your Scheme's
+;;; working directory to be the directory where this file is and
+;;; evaluate these forms sequentially at the repl.
+
+;;; This version is intended to be used with the Scmutils
+;;; symbolic/numeric system, developed by Gerald Jay Sussman, Jack
+;;; Wisdom, and many other friends over many years.
+
+(if (not (environment-bound? system-global-environment
+                             'user-generic-environment))
+    (error "Please load me into a scmutils-augmented Scheme"))
+
+(environment-define system-global-environment 'user-propagator-environment
+		    (extend-top-level-environment
+		     (access user-generic-environment scmutils-base-environment)))
+
+(define (cf-conditionally filename)
+  (fluid-let ((sf/default-syntax-table (nearest-repl/environment)))
+    (sf-conditionally filename))
+  (if (not (file-processed? filename "bin" "com"))
+      (compile-bin-file filename)))
+
+(define (load-compiled filename)
+  (cf-conditionally filename)
+  (load filename user-propagator-environment))
+
+(define (self-relatively thunk)
+  (if (current-eval-unit #f)
+      (with-working-directory-pathname
+       (directory-namestring (current-load-pathname))
+       thunk)
+      (thunk)))
+
+(define (load-relative filename)
+  (self-relatively
+   (lambda ()
+     (load filename user-propagator-environment))))
+
+(load-relative "sugar.scm")
+
+(for-each
+ load-relative
+ '("utils.scm"
+   ;; "memoizers.scm"     ;unused
+   "eq-properties.scm"    ;supplied by scmutils
+   "sugar.scm"
+   ;; "ghelper.scm"       ;supplied by scmutils
+   "genops.scm"
+   "cells.scm"            ;defines merge generic operator
+
+   "intervals.scm"
+   "propagators.scm"
+   "primitive-propagators.scm"
+   "constraint-propagators.scm"
+   "supported-values.scm"
+   "tms.scm"
+   "search.scm"
+   "plunk-and-solve.scm"
+   "ui.scm"
+   "scheduler.scm"
+
+   ;; Test cases
+   "puzzle-utilities.scm"
+   "new-examples-test.scm"
+   "electric.scm"))
+
+
+(stop-scmutils-print)
+((access initialize-scheduler user-propagator-environment))
+(ge user-propagator-environment)
+

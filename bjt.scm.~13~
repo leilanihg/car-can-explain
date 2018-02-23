@@ -1,0 +1,412 @@
+(define (bjt-active-beta-model VBEthreshold VCEsaturation beta
+                               #!optional given-name)
+  (3-terminal-device '(bjt-active-beta-model b c e) given-name
+    (lambda (VBE IB VCE IC)
+      (let-cells (type                ;+ for NPN, - for PNP
+                  VBEsign VCEsign IBsign ICsign
+                  absVBEthreshold absVCEsaturation
+		  absVBE absVCE absIC IE
+                  (false #f))
+
+        (sign VBEthreshold type)
+
+        (same VBEsign type)
+        (sign VBE VBEsign)
+
+        (same VCEsign type)
+        (sign VCE VCEsign)
+
+        (same IBsign type)
+        (sign IB IBsign)
+
+        (same ICsign type)
+        (sign IC ICsign)
+
+        (absolute-value VBEthreshold absVBEthreshold)
+        (absolute-value VBE absVBE)
+
+        (absolute-value VCEsaturation absVCEsaturation)
+
+        ;; Active transistor
+        (<=? absVCE absVCEsaturation false)    ;Not saturated
+        (same VBE VBEthreshold)                ;Not cutoff
+        (product beta IB IC)
+	)
+      trivial-insides)
+    VBEthreshold VCEsaturation beta))
+
+(define (exponential-diode IS q/kT #!optional given-name)
+  (2-terminal-device '(exponential-diode anode cathode) given-name
+    (lambda (v i)
+      (let-cells (v*q/kT e^v*q/kT e^v*q/kT-1 (one 1))
+        (product v q/kT v*q/kT)
+        (c:exp v*q/kT e^v*q/kT)
+        (sum one e^v*q/kT-1 e^v*q/kT)
+        (product e^v*q/kT-1 IS i))
+      trivial-insides)
+    IS q/kT))
+
+(define (bjt-active-EberMoll-model VBEthreshold VCEsaturation beta IS
+                                   #!optional given-name)
+  (3-terminal-device '(bjt-active-EberMoll-model b c e) given-name
+    (lambda (VBE IB VCE IC)
+      (let-cells (type                ;+ for NPN, - for PNP
+                  VBEsign VCEsign IBsign ICsign
+                  absVBEthreshold absVCEsaturation
+		  absVBE absVCE absIC IE
+                  (false #f))
+
+        (sign VBEthreshold type)
+
+        (same VBEsign type)
+        (sign VBE VBEsign)
+
+        (same VCEsign type)
+        (sign VCE VCEsign)
+
+        (same IBsign type)
+        (sign IB IBsign)
+
+        (same ICsign type)
+        (sign IC ICsign)
+
+        (absolute-value VBEthreshold absVBEthreshold)
+        (absolute-value VBE absVBE)
+
+        (absolute-value VCEsaturation absVCEsaturation)
+
+        ;; Active transistor
+        (<=? absVCE absVCEsaturation false)    ;Not saturated
+
+	#;
+	((exponential-diode IS q/kT)
+	 (my-node 'b) (my-node 'e))
+
+	
+        (let-cells (v*q/kT e^v*q/kT e^v*q/kT-1 (one 1)
+			   mIE (mone -1))
+          (product VBE q/kT v*q/kT)
+          (c:exp v*q/kT e^v*q/kT)
+          (sum one e^v*q/kT-1 e^v*q/kT)
+          (product e^v*q/kT-1 IS mIE)
+          (product mone mIE IE))
+
+        (product beta IB IC)
+	)
+      trivial-insides)
+    VBEthreshold VCEsaturation beta IS))
+
+#|
+;;; Test diode
+
+(initialize-scheduler)
+
+(define TOP (node 'TOP))
+(define GND (node 'GND))
+
+;(define-cell IS 1e-14)
+(define-cell IS 'I_S)
+;(define-cell q/kT 38)
+(define-cell q/kT 'q/kT)
+
+(define D
+  ((exponential-diode IS q/kT 'D) TOP GND))
+
+(tell! (potential GND) 0 'test1)
+
+(inquire (thing '(current anode D)))
+;Value: ((current anode D) (has-value (*the-nothing*)) (because ()) (depends-on))
+
+(tell! (thing '(current anode D)) 'I_D 'test2)
+
+(inquire (potential TOP))
+;Value:
+((potential TOP)
+ (has-value (*number* (expression (/ (log (+ 1 (/ I_D I_S))) q/kT))))
+ (because ((+ ((v D) (potential GND)) (potential TOP))
+	   (sum (v D) (potential GND) (potential TOP)) D))
+ (depends-on (test1) (test2)))
+;;; This is correct.
+
+;;; But! Numerically...
+
+(initialize-scheduler)
+
+(define TOP (node 'TOP))
+(define GND (node 'GND))
+
+(define-cell IS 1e-14)
+(define-cell q/kT 38)
+
+(define D
+  ((exponential-diode IS q/kT 'D) TOP GND))
+
+(tell! (potential GND) 0 'test1)
+
+(inquire (thing '(current anode D)))
+;Value: ((current anode D) (has-value .00000000000001) (because ()) (depends-on))
+
+;;; Huh?  Why does this 10^-14 value become the current?
+;;; Problem was in default-equal? in utils.scm.  Correct response here is:
+;Value: ((current anode D) (has-value (*the-nothing*)) (because ()) (depends-on))
+
+;;; But still problems...
+(tell! (thing '(current anode D)) '.01 'test2)
+;Value: (contradiction #[compound-procedure 85 me]
+                       (test2)
+                       (#[compound-procedure 86 me] #[compound-procedure 87 me]))
+
+(content (thing '(current anode D)))
+;Value: (tms ((supported .01 (test2) ((*universal-ancestor*)))))
+
+(name (unhash 86))
+;Value: ((+ ((one D) (e^v*q/kT-1 D)) (e^v*q/kT D))
+         (sum (one D) (e^v*q/kT-1 D) (e^v*q/kT D)) D)
+
+(name (unhash 87))
+;Value: ((function-propagator (#[compiled-closure 76 (lambda "ghelper" #x1) #x654 #x2913b3c #x2b18ac8])
+           ((v*q/kT D))
+           (e^v*q/kT D))
+         (c:exp (v*q/kT D) #[compound-procedure 88 name] y)
+         D)
+
+;;; Delicately setting *equality-tolerance* to 1e-15 lets things work...
+
+(inquire (potential TOP))
+;Value: ((potential TOP)
+         (has-value .7271321346297249)
+         (because ((+ ((v D) (potential GND)) (potential TOP))
+		   (sum (v D) (potential GND) (potential TOP))
+		   D))
+        (depends-on (test1) (test2)))
+
+;;; This is unacceptable!
+|#
+
+#|
+;;; Beta model of common-emitter amplifier.
+
+(initialize-scheduler)
+
+(define TOP (node 'TOP))
+(define GND (node 'GND))
+
+(define B (node 'B))
+(define C (node 'C))
+(define E (node 'E))
+
+(define-cell VThreshold)
+(define-cell VSaturation)
+(define-cell beta)
+
+(define Q
+  ((bjt-active-beta-model VThreshold VSaturation beta 'Q)
+   B C E))
+
+(define-cell RB1)
+(define RBU ((linear-resistor RB1 'RB1) TOP B))
+
+(define-cell RB2)
+(define RBD ((linear-resistor RB2 'RB2) B GND))
+
+(define-cell RC)
+(define RPU ((linear-resistor RC 'RC) TOP C))
+
+(define-cell RE)
+(define RPD ((linear-resistor RE 'RE) E GND))
+
+(define-cell VCC)
+(define VS  ((voltage-source VCC 'VCC) TOP GND))
+
+(cap! TOP)
+(cap! GND)
+(cap! B)
+(cap! C)
+(cap! E)
+
+;;; E96 1% values
+
+(tell! VCC 15 'gjs1)
+(tell! (potential GND) 0 'gjs2)
+
+(tell! RB2 20000  'gjs3)
+(tell! RB1 162000 'gjs4)
+(tell! RC  4990   'gjs5)
+(tell! RE  1000   'gjs6)
+
+(tell! VThreshold 0.65 'gjs7)		
+(tell! VSaturation 0.2 'gjs7)
+(tell! beta 100 'gjs8)
+
+(cpp (inquire (thing '(current c Q))))
+#;
+((current c Q) (has-value (*the-nothing*)) (because ()) (depends-on))
+
+(plunk! (thing '(potential B)))
+
+(cpp (inquire (thing '(current c Q))))
+#;
+((current c Q) (has-value 8.403477939136069e-4)
+ (because ((* ((beta) (current b Q)) (current c Q))
+	   (product (beta) (current b Q) (current c Q))
+	   Q))
+ (depends-on (gjs2) (gjs3) (gjs4) (gjs1) (gjs6) (gjs7) (gjs8)))
+
+(cpp (inquire (thing '(current b Q))))
+#;
+((current b Q) (has-value 8.40347793913607e-6)
+ (because ((- ((a B) (current t2 RB1)) (current b Q))
+           (sum (current t2 RB1) (current b Q) (a B)) B))
+ (depends-on (gjs7) (gjs6) (gjs8) (gjs1) (gjs4) (gjs3) (gjs2)))
+;Unspecified return value
+
+(cpp (inquire (thing '(potential B))))
+#;
+((potential B) (has-value 1.4987512718527425)
+ (because (solver)
+          ((- ((i12 Q) (current c Q)) (current b Q))
+           (sum (current b Q) (current c Q) (i12 Q)) Q)
+          ((- ((a B) (current t2 RB1)) (current b Q))
+           (sum (current t2 RB1) (current b Q) (a B)) B))
+ (depends-on (gjs7) (gjs6) (gjs8) (gjs1) (gjs4) (gjs3) (gjs2)))
+
+(cpp (inquire (thing '(P Q))))
+#;
+((P Q) (has-value 8.373572680951747e-3)
+ (because ((+ ((P1 Q) (P2 Q)) (P Q)) (sum (P1 Q) (P2 Q) (P Q)) Q))
+ (depends-on (gjs5) (gjs7) (gjs6) (gjs8) (gjs1) (gjs4) (gjs3) (gjs2)))
+|#
+
+#|
+;;; Exponential-diode model of BJT in common-emitter amplifier.
+
+;;; This does not yet work because of naming of internal B-E diode nodes.
+
+(initialize-scheduler)
+
+(define TOP (node 'TOP))
+(define GND (node 'GND))
+
+(define B (node 'B))
+(define C (node 'C))
+(define E (node 'E))
+
+(define-cell VThreshold)
+(define-cell VSaturation)
+(define-cell beta)
+(define-cell IS)
+
+(define-cell q/kT 38)
+
+(define Q
+  ((bjt-active-EberMoll-model VThreshold VSaturation beta IS 'Q)
+   B C E))
+
+(define-cell RB1)
+(define RBU ((linear-resistor RB1 'RB1) TOP B))
+
+(define-cell RB2)
+(define RBD ((linear-resistor RB2 'RB2) B GND))
+
+(define-cell RC)
+(define RPU ((linear-resistor RC 'RC) TOP C))
+
+(define-cell RE)
+(define RPD ((linear-resistor RE 'RE) E GND))
+
+(define-cell VCC)
+(define VS  ((voltage-source VCC 'VCC) TOP GND))
+
+(cap! TOP)
+(cap! GND)
+(cap! B)
+(cap! C)
+(cap! E)
+
+;;; E96 1% values
+
+(tell! VCC 15 'gjs1)
+(tell! (potential GND) 0 'gjs2)
+
+(tell! RB2 20000  'gjs3)
+(tell! RB1 162000 'gjs4)
+(tell! RC  4990   'gjs5)
+(tell! RE  1000   'gjs6)
+
+(tell! VThreshold 0.65 'gjs7)		
+(tell! VSaturation 0.2 'gjs7)
+(tell! beta 100 'gjs8)
+(tell! IS 1e-14 'gjs8)
+
+
+;;; the following buggy version has exponential diode in model...
+
+(cpp (inquire (thing '(current c Q))))
+#;
+((current c Q) (has-value (*the-nothing*)) (because ()) (depends-on))
+
+(plunk! (thing '(potential B)))
+;Value: (contradiction #[compound-procedure 65 me]
+                       (gjs5 gjs3 gjs4 gjs6 gjs8 gjs2 gjs1)
+                       (#[compound-procedure 66 me] #[compound-procedure 67 me]))
+
+(cpp (inquire (thing '(current c Q))))
+(contradiction #[compound-procedure 65 me] (gjs5 gjs3 gjs4 gjs6 gjs8 gjs2 gjs1) (#[compound-procedure 66 me] #[compound-procedure 67 me]))
+#;
+((current c Q)
+ (has-value 9.259259258259258e-3)
+ (because ((* ((beta) (current b Q)) (current c Q)) (product (beta) (current b Q) (current c Q)) Q))
+ (depends-on (gjs2) (gjs3) (gjs4) (gjs1) (gjs6) (gjs5) (gjs8)))
+
+;;; Should be about 1mA not 9mA!
+
+(cpp (inquire (thing '(current b Q))))
+(contradiction #[compound-procedure 65 me] (gjs5 gjs3 gjs4 gjs6 gjs8 gjs2 gjs1) (#[compound-procedure 66 me] #[compound-procedure 67 me]))
+#;
+((current b Q)
+ (has-value 9.259259258259258e-5)
+ (because
+  ((- ((a B) (current anode (exponential-diode ((IS) (q/kT)) (B) (E)) Q)) (current b Q))
+   (sum (current anode (exponential-diode ((IS) (q/kT)) (B) (E)) Q) (current b Q) (a B))
+   B))
+ (depends-on (gjs5) (gjs6) (gjs8) (gjs1) (gjs4) (gjs3) (gjs2)))
+
+(cpp (inquire (thing '(current e Q))))
+(contradiction #[compound-procedure 65 me] (gjs5 gjs3 gjs4 gjs6 gjs8 gjs2 gjs1) (#[compound-procedure 66 me] #[compound-procedure 67 me]))
+#;
+((current e Q)
+ (has-value -9.351851850841851e-3)
+ (because ((- ((zero-i Q) (i12 Q)) (current e Q)) (sum (i12 Q) (current e Q) (zero-i Q)) Q))
+ (depends-on (gjs5) (gjs6) (gjs8) (gjs1) (gjs4) (gjs3) (gjs2)))
+
+(cpp (inquire (thing '(potential C))))
+(contradiction #[compound-procedure 65 me] (gjs5 gjs3 gjs4 gjs6 gjs8 gjs2 gjs1) (#[compound-procedure 66 me] #[compound-procedure 67 me]))
+#;
+((potential C)
+ (has-value -31.203703698713696)
+ (because ((- ((potential TOP) (v RC)) (potential C)) (sum (v RC) (potential C) (potential TOP)) RC))
+ (depends-on (gjs5) (gjs3) (gjs4) (gjs6) (gjs8) (gjs2) (gjs1)))
+
+(cpp (inquire (thing '(potential E))))
+(contradiction #[compound-procedure 65 me] (gjs5 gjs3 gjs4 gjs6 gjs8 gjs2 gjs1) (#[compound-procedure 66 me] #[compound-procedure 67 me]))
+#;
+((potential E)
+ (has-value 9.351851850851853)
+ (because ((+ ((v RE) (potential GND)) (potential E)) (sum (v RE) (potential GND) (potential E)) RE))
+ (depends-on (gjs8) (gjs5) (gjs1) (gjs4) (gjs3) (gjs2) (gjs6)))
+
+(cpp (inquire (thing '(potential B))))
+(contradiction #[compound-procedure 65 me] (gjs5 gjs3 gjs4 gjs6 gjs8 gjs2 gjs1) (#[compound-procedure 66 me] #[compound-procedure 67 me]))
+#;
+((potential B) (has-value 0)
+               (because (solver) ((- ((P Q) (P1 Q)) (P2 Q)) (sum (P1 Q) (P2 Q) (P Q)) Q))
+               (depends-on (gjs5) (gjs6) (gjs8) (gjs1) (gjs4) (gjs3) (gjs2)))
+
+|#
+
+
+;;; Difference between explicit diode and diode equations is 
+;;;  1. explicit diode has extra constraint: 
+          sum of anode and cathode currents is zero
+          this makes numerical value come out, but
+;;;  2. Some other bug makes answer come our wrong.

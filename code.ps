@@ -1,0 +1,790 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 18 36 594 756
+%%Title: letter
+%%Creator: GNU Enscript 1.6.5.90
+%%CreationDate: Thu Aug  4 18:36:38 2016
+%%Orientation: Portrait
+%%Pages: (atend)
+%%DocumentMedia: Letter 612 792 0 () ()
+%%DocumentNeededResources: (atend)
+%%EndComments
+%%BeginProlog
+%%BeginResource: procset Enscript-Prolog 1.6.5 90
+%
+% Procedures.
+%
+
+/_S {	% save current state
+  /_s save def
+} def
+/_R {	% restore from saved state
+  _s restore
+} def
+
+/S {	% showpage protecting gstate
+  gsave
+  showpage
+  grestore
+} bind def
+
+/MF {	% fontname newfontname -> -	make a new encoded font
+  /newfontname exch def
+  /fontname exch def
+
+  /fontdict fontname findfont def
+  /newfont fontdict maxlength dict def
+
+  fontdict {
+    exch
+    dup /FID eq {
+      % skip FID pair
+      pop pop
+    } {
+      % copy to the new font dictionary
+      exch newfont 3 1 roll put
+    } ifelse
+  } forall
+
+  newfont /FontName newfontname put
+
+  % insert only valid encoding vectors
+  encoding_vector length 256 eq {
+    newfont /Encoding encoding_vector put
+  } if
+
+  newfontname newfont definefont pop
+} def
+
+/MF_PS { % fontname newfontname -> -	make a new font preserving its enc
+  /newfontname exch def
+  /fontname exch def
+
+  /fontdict fontname findfont def
+  /newfont fontdict maxlength dict def
+
+  fontdict {
+    exch
+    dup /FID eq {
+      % skip FID pair
+      pop pop
+    } {
+      % copy to the new font dictionary
+      exch newfont 3 1 roll put
+    } ifelse
+  } forall
+
+  newfont /FontName newfontname put
+
+  newfontname newfont definefont pop
+} def
+
+/SF { % fontname width height -> -	set a new font
+  /height exch def
+  /width exch def
+
+  findfont
+  [width 0 0 height 0 0] makefont setfont
+} def
+
+/SUF { % fontname width height -> -	set a new user font
+  /height exch def
+  /width exch def
+
+  /F-gs-user-font MF
+  /F-gs-user-font width height SF
+} def
+
+/SUF_PS { % fontname width height -> -	set a new user font preserving its enc
+  /height exch def
+  /width exch def
+
+  /F-gs-user-font MF_PS
+  /F-gs-user-font width height SF
+} def
+
+/M {moveto} bind def
+/s {show} bind def
+
+/Box {	% x y w h -> -			define box path
+  /d_h exch def /d_w exch def /d_y exch def /d_x exch def
+  d_x d_y  moveto
+  d_w 0 rlineto
+  0 d_h rlineto
+  d_w neg 0 rlineto
+  closepath
+} def
+
+/bgs {	% x y height blskip gray str -> -	show string with bg color
+  /str exch def
+  /gray exch def
+  /blskip exch def
+  /height exch def
+  /y exch def
+  /x exch def
+
+  gsave
+    x y blskip sub str stringwidth pop height Box
+    gray setgray
+    fill
+  grestore
+  x y M str s
+} def
+
+/bgcs { % x y height blskip red green blue str -> -  show string with bg color
+  /str exch def
+  /blue exch def
+  /green exch def
+  /red exch def
+  /blskip exch def
+  /height exch def
+  /y exch def
+  /x exch def
+
+  gsave
+    x y blskip sub str stringwidth pop height Box
+    red green blue setrgbcolor
+    fill
+  grestore
+  x y M str s
+} def
+
+% Highlight bars.
+/highlight_bars {	% nlines lineheight output_y_margin gray -> -
+  gsave
+    setgray
+    /ymarg exch def
+    /lineheight exch def
+    /nlines exch def
+
+    % This 2 is just a magic number to sync highlight lines to text.
+    0 d_header_y ymarg sub 2 sub translate
+
+    /cw d_output_w cols div def
+    /nrows d_output_h ymarg 2 mul sub lineheight div cvi def
+
+    % for each column
+    0 1 cols 1 sub {
+      cw mul /xp exch def
+
+      % for each rows
+      0 1 nrows 1 sub {
+        /rn exch def
+        rn lineheight mul neg /yp exch def
+        rn nlines idiv 2 mod 0 eq {
+	  % Draw highlight bar.  4 is just a magic indentation.
+	  xp 4 add yp cw 8 sub lineheight neg Box fill
+	} if
+      } for
+    } for
+
+  grestore
+} def
+
+% Line highlight bar.
+/line_highlight {	% x y width height gray -> -
+  gsave
+    /gray exch def
+    Box gray setgray fill
+  grestore
+} def
+
+% Column separator lines.
+/column_lines {
+  gsave
+    .1 setlinewidth
+    0 d_footer_h translate
+    /cw d_output_w cols div def
+    1 1 cols 1 sub {
+      cw mul 0 moveto
+      0 d_output_h rlineto stroke
+    } for
+  grestore
+} def
+
+% Column borders.
+/column_borders {
+  gsave
+    .1 setlinewidth
+    0 d_footer_h moveto
+    0 d_output_h rlineto
+    d_output_w 0 rlineto
+    0 d_output_h neg rlineto
+    closepath stroke
+  grestore
+} def
+
+% Do the actual underlay drawing
+/draw_underlay {
+  ul_style 0 eq {
+    ul_str true charpath stroke
+  } {
+    ul_str show
+  } ifelse
+} def
+
+% Underlay
+/underlay {	% - -> -
+  gsave
+    0 d_page_h translate
+    d_page_h neg d_page_w atan rotate
+
+    ul_gray setgray
+    ul_font setfont
+    /dw d_page_h dup mul d_page_w dup mul add sqrt def
+    ul_str stringwidth pop dw exch sub 2 div ul_h_ptsize -2 div moveto
+    draw_underlay
+  grestore
+} def
+
+/user_underlay {	% - -> -
+  gsave
+    ul_x ul_y translate
+    ul_angle rotate
+    ul_gray setgray
+    ul_font setfont
+    0 0 ul_h_ptsize 2 div sub moveto
+    draw_underlay
+  grestore
+} def
+
+% Page prefeed
+/page_prefeed {		% bool -> -
+  statusdict /prefeed known {
+    statusdict exch /prefeed exch put
+  } {
+    pop
+  } ifelse
+} def
+
+% Wrapped line markers
+/wrapped_line_mark {	% x y charwith charheight type -> -
+  /type exch def
+  /h exch def
+  /w exch def
+  /y exch def
+  /x exch def
+
+  type 2 eq {
+    % Black boxes (like TeX does)
+    gsave
+      0 setlinewidth
+      x w 4 div add y M
+      0 h rlineto w 2 div 0 rlineto 0 h neg rlineto
+      closepath fill
+    grestore
+  } {
+    type 3 eq {
+      % Small arrows
+      gsave
+        .2 setlinewidth
+        x w 2 div add y h 2 div add M
+        w 4 div 0 rlineto
+        x w 4 div add y lineto stroke
+
+        x w 4 div add w 8 div add y h 4 div add M
+        x w 4 div add y lineto
+	w 4 div h 8 div rlineto stroke
+      grestore
+    } {
+      % do nothing
+    } ifelse
+  } ifelse
+} def
+
+% EPSF import.
+
+/BeginEPSF {
+  /b4_Inc_state save def    		% Save state for cleanup
+  /dict_count countdictstack def	% Count objects on dict stack
+  /op_count count 1 sub def		% Count objects on operand stack
+  userdict begin
+  /showpage { } def
+  0 setgray 0 setlinecap
+  1 setlinewidth 0 setlinejoin
+  10 setmiterlimit [ ] 0 setdash newpath
+  /languagelevel where {
+    pop languagelevel
+    1 ne {
+      false setstrokeadjust false setoverprint
+    } if
+  } if
+} bind def
+
+/EndEPSF {
+  count op_count sub { pos } repeat	% Clean up stacks
+  countdictstack dict_count sub { end } repeat
+  b4_Inc_state restore
+} bind def
+
+% Check PostScript language level.
+/languagelevel where {
+  pop /gs_languagelevel languagelevel def
+} {
+  /gs_languagelevel 1 def
+} ifelse
+%%EndResource
+%%BeginResource: procset Enscript-Encoding-88591 1.6.5 90
+/encoding_vector [
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/space        	/exclam       	/quotedbl     	/numbersign   	
+/dollar       	/percent      	/ampersand    	/quoteright   	
+/parenleft    	/parenright   	/asterisk     	/plus         	
+/comma        	/hyphen       	/period       	/slash        	
+/zero         	/one          	/two          	/three        	
+/four         	/five         	/six          	/seven        	
+/eight        	/nine         	/colon        	/semicolon    	
+/less         	/equal        	/greater      	/question     	
+/at           	/A            	/B            	/C            	
+/D            	/E            	/F            	/G            	
+/H            	/I            	/J            	/K            	
+/L            	/M            	/N            	/O            	
+/P            	/Q            	/R            	/S            	
+/T            	/U            	/V            	/W            	
+/X            	/Y            	/Z            	/bracketleft  	
+/backslash    	/bracketright 	/asciicircum  	/underscore   	
+/quoteleft    	/a            	/b            	/c            	
+/d            	/e            	/f            	/g            	
+/h            	/i            	/j            	/k            	
+/l            	/m            	/n            	/o            	
+/p            	/q            	/r            	/s            	
+/t            	/u            	/v            	/w            	
+/x            	/y            	/z            	/braceleft    	
+/bar          	/braceright   	/tilde        	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/space        	/exclamdown   	/cent         	/sterling     	
+/currency     	/yen          	/brokenbar    	/section      	
+/dieresis     	/copyright    	/ordfeminine  	/guillemotleft	
+/logicalnot   	/hyphen       	/registered   	/macron       	
+/degree       	/plusminus    	/twosuperior  	/threesuperior	
+/acute        	/mu           	/paragraph    	/bullet       	
+/cedilla      	/onesuperior  	/ordmasculine 	/guillemotright	
+/onequarter   	/onehalf      	/threequarters	/questiondown 	
+/Agrave       	/Aacute       	/Acircumflex  	/Atilde       	
+/Adieresis    	/Aring        	/AE           	/Ccedilla     	
+/Egrave       	/Eacute       	/Ecircumflex  	/Edieresis    	
+/Igrave       	/Iacute       	/Icircumflex  	/Idieresis    	
+/Eth          	/Ntilde       	/Ograve       	/Oacute       	
+/Ocircumflex  	/Otilde       	/Odieresis    	/multiply     	
+/Oslash       	/Ugrave       	/Uacute       	/Ucircumflex  	
+/Udieresis    	/Yacute       	/Thorn        	/germandbls   	
+/agrave       	/aacute       	/acircumflex  	/atilde       	
+/adieresis    	/aring        	/ae           	/ccedilla     	
+/egrave       	/eacute       	/ecircumflex  	/edieresis    	
+/igrave       	/iacute       	/icircumflex  	/idieresis    	
+/eth          	/ntilde       	/ograve       	/oacute       	
+/ocircumflex  	/otilde       	/odieresis    	/divide       	
+/oslash       	/ugrave       	/uacute       	/ucircumflex  	
+/udieresis    	/yacute       	/thorn        	/ydieresis    	
+] def
+%%EndResource
+%%EndProlog
+%%BeginSetup
+%%IncludeResource: font Courier-Bold
+%%IncludeResource: font Courier
+/HFpt_w 10 def
+/HFpt_h 10 def
+/Courier /HF-gs-font MF
+/HF /HF-gs-font findfont [HFpt_w 0 0 HFpt_h 0 0] makefont def
+/Courier-Bold /F-gs-font MF
+/F-gs-font 10 10 SF
+/#copies 1 def
+% Pagedevice definitions:
+gs_languagelevel 1 gt {
+  <<
+    /PageSize [612 792] 
+  >> setpagedevice
+} if
+%%BeginResource: procset Enscript-Header-simple 1.6.5 90
+
+/do_header {	% print default simple header
+  gsave
+    d_header_x d_header_y HFpt_h 3 div add translate
+
+    HF setfont
+    user_header_p {
+      5 0 moveto user_header_left_str show
+
+      d_header_w user_header_center_str stringwidth pop sub 2 div
+      0 moveto user_header_center_str show
+
+      d_header_w user_header_right_str stringwidth pop sub 5 sub
+      0 moveto user_header_right_str show
+    } {
+      5 0 moveto fname show
+      45 0 rmoveto fmodstr show
+      45 0 rmoveto pagenumstr show
+    } ifelse
+
+  grestore
+} def
+%%EndResource
+/d_page_w 576 def
+/d_page_h 720 def
+/d_header_x 0 def
+/d_header_y 705 def
+/d_header_w 576 def
+/d_header_h 15 def
+/d_footer_x 0 def
+/d_footer_y 0 def
+/d_footer_w 576 def
+/d_footer_h 0 def
+/d_output_w 576 def
+/d_output_h 705 def
+/cols 1 def
+%%EndSetup
+%%Page: (1) 1
+%%BeginPageSetup
+_S
+18 36 translate
+/pagenum 1 def
+/fname (constraint-propagators.scm) def
+/fdir (.) def
+/ftail (constraint-propagators.scm) def
+% User defined strings:
+/fmodstr (Thu Aug 04 18:36:33 2016) def
+/pagenumstr (1) def
+/user_header_p false def
+/user_footer_p false def
+%%EndPageSetup
+do_header
+35 692 M
+(;;; ----------------------------------------------------------------------) s
+35 681 M
+(;;; Copyright 2008 Alexey Radul and Gerald Jay Sussman.) s
+35 670 M
+(;;; ----------------------------------------------------------------------) s
+35 659 M
+(;;; This file is part of Artistic Propagator Prototype.) s
+35 648 M
+(;;; ) s
+35 637 M
+(;;; Artistic Propagator Prototype is free software; you can) s
+35 626 M
+(;;; redistribute it and/or modify it under the terms of the GNU) s
+35 615 M
+(;;; General Public License as published by the Free Software) s
+35 604 M
+(;;; Foundation, either version 3 of the License, or \(at your option\)) s
+35 593 M
+(;;; any later version.) s
+35 582 M
+(;;; ) s
+35 571 M
+(;;; Artistic Propagator Prototype is distributed in the hope that it) s
+35 560 M
+(;;; will be useful, but WITHOUT ANY WARRANTY; without even the implied) s
+35 549 M
+(;;; warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.) s
+35 538 M
+(;;; See the GNU General Public License for more details.) s
+35 527 M
+(;;; ) s
+35 516 M
+(;;; You should have received a copy of the GNU General Public License) s
+35 505 M
+(;;; along with Artistic Propagator Prototype.  If not, see) s
+35 494 M
+(;;; <http://www.gnu.org/licenses/>.) s
+35 483 M
+(;;; ----------------------------------------------------------------------) s
+35 461 M
+(;;; Constraint-propagator-constructors) s
+_R
+S
+%%Page: (2) 2
+%%BeginPageSetup
+_S
+18 36 translate
+/pagenum 2 def
+/fname (constraint-propagators.scm) def
+/fdir (.) def
+/ftail (constraint-propagators.scm) def
+% User defined strings:
+/fmodstr (Thu Aug 04 18:36:33 2016) def
+/pagenumstr (2) def
+/user_header_p false def
+/user_footer_p false def
+%%EndPageSetup
+do_header
+35 681 M
+(\(define \(sum x y total\)) s
+35 670 M
+(  \(constraint-propagator \(list x y total\)) s
+35 659 M
+(    \(lambda \(\)) s
+35 648 M
+(      \(adder x y total\)) s
+35 637 M
+(      \(subtractor total x y\)) s
+35 626 M
+(      \(subtractor total y x\)\)) s
+35 615 M
+(    `\(sum ,\(name x\) ,\(name y\) ,\(name total\)\)\)\)) s
+35 593 M
+(\(define \(product x y total\)) s
+35 582 M
+(  \(constraint-propagator \(list x y total\)) s
+35 571 M
+(    \(lambda \(\)) s
+35 560 M
+(      \(multiplier x y total\)) s
+35 549 M
+(      \(divider total x y\)) s
+35 538 M
+(      \(divider total y x\)\)) s
+35 527 M
+(    `\(product ,\(name x\) ,\(name y\) ,\(name total\)\)\)\)) s
+35 505 M
+(\(define \(same x y\)) s
+35 494 M
+(  \(constraint-propagator \(list x y\)) s
+35 483 M
+(    \(lambda \(\)) s
+35 472 M
+(      \(copier x y\)) s
+35 461 M
+(      \(copier y x\)\)) s
+35 450 M
+(    `\(same ,\(name x\) ,\(name y\)\)\)\)) s
+35 428 M
+(\(define \(controlled-same a b p\)) s
+35 417 M
+(  \(constraint-propagator \(list a b p\)) s
+35 406 M
+(    \(lambda \(\)) s
+35 395 M
+(      \(spst-switch p a b\)) s
+35 384 M
+(      \(spst-switch p b a\)\)) s
+35 373 M
+(    `\(controlled-same ,\(name a\) ,\(name b\) ,\(name p\)\)\)\)) s
+35 351 M
+(\(define \(full-same a b p\)) s
+35 340 M
+(  \(constraint-propagator \(list a b p\)) s
+35 329 M
+(    \(lambda \(\)) s
+35 318 M
+(      \(=? a b p\)) s
+35 307 M
+(      \(spst-switch p a b\)) s
+35 296 M
+(      \(spst-switch p b a\)\)) s
+35 285 M
+(    `\(full-same ,\(name a\) ,\(name b\) ,\(name p\)\)\)\)) s
+_R
+S
+%%Page: (3) 3
+%%BeginPageSetup
+_S
+18 36 translate
+/pagenum 3 def
+/fname (constraint-propagators.scm) def
+/fdir (.) def
+/ftail (constraint-propagators.scm) def
+% User defined strings:
+/fmodstr (Thu Aug 04 18:36:33 2016) def
+/pagenumstr (3) def
+/user_header_p false def
+/user_footer_p false def
+%%EndPageSetup
+do_header
+35 681 M
+(;;; Logical constraints) s
+35 659 M
+(\(define \(conjunction a b c\)) s
+35 648 M
+(  \(constraint-propagator \(list a b c\)) s
+35 637 M
+(    \(lambda \(\)) s
+35 626 M
+(      \(conjoiner a b c\)) s
+35 615 M
+(      \(p:dna c a b\)) s
+35 604 M
+(      \(p:dna c b a\)) s
+35 593 M
+(      \(p:imp c a\)) s
+35 582 M
+(      \(p:imp c b\)\)) s
+35 571 M
+(    `\(conjunction ,\(name a\) ,\(name b\) ,\(name c\)\)\)\)) s
+35 549 M
+(\(define \(disjunction a b c\)) s
+35 538 M
+(  \(constraint-propagator \(list a b c\)) s
+35 527 M
+(    \(lambda \(\)) s
+35 516 M
+(      \(disjoiner a b c\)) s
+35 505 M
+(      \(p:ro c a b\)) s
+35 494 M
+(      \(p:ro c b a\)) s
+35 483 M
+(      \(p:pmi c a\)) s
+35 472 M
+(      \(p:pmi c b\)\)) s
+35 461 M
+(    `\(disjunction ,\(name a\) ,\(name b\) ,\(name c\)\)\)\)) s
+35 439 M
+(\(define \(implication a b\)) s
+35 428 M
+(  \(constraint-propagator \(list a b\)) s
+35 417 M
+(    \(lambda \(\)) s
+35 406 M
+(      \(p:imp a b\)) s
+35 395 M
+(      \(p:pmi b a\)\)\)\)) s
+35 373 M
+(\(define \(inversion a b\)) s
+35 362 M
+(  \(constraint-propagator \(list a b\)) s
+35 351 M
+(    \(lambda \(\)) s
+35 340 M
+(      \(inverter a b\)) s
+35 329 M
+(      \(inverter b a\)\)) s
+35 318 M
+(    `\(inversion ,\(name a\) ,\(name b\)\)\)\)) s
+_R
+S
+%%Page: (4) 4
+%%BeginPageSetup
+_S
+18 36 translate
+/pagenum 4 def
+/fname (constraint-propagators.scm) def
+/fdir (.) def
+/ftail (constraint-propagators.scm) def
+% User defined strings:
+/fmodstr (Thu Aug 04 18:36:33 2016) def
+/pagenumstr (4) def
+/user_header_p false def
+/user_footer_p false def
+%%EndPageSetup
+do_header
+35 681 M
+(;;; These are \(or should be\) using AMB.) s
+35 659 M
+(\(define \(quadratic x x^2\)) s
+35 648 M
+(  \(constraint-propagator \(list x x^2\)) s
+35 637 M
+(    \(lambda \(\)) s
+35 626 M
+(      \(squarer x x^2\)) s
+35 615 M
+(      \(sqrter x^2 x\)\)) s
+35 604 M
+(    `\(quadratic ,\(name x\) ,\(name x^2\)\)\)\)) s
+35 582 M
+(\(define \(+->+ x ax\)) s
+35 571 M
+(  \(constraint-propagator \(list x ax\)) s
+35 560 M
+(    \(lambda \(\)) s
+35 549 M
+(      \(absolute-value x ax\)) s
+35 538 M
+(      \(let-cells \(p one m-one mul\)) s
+35 527 M
+(        \(conditional p one m-one mul\)) s
+35 516 M
+(        \(binary-amb p\)) s
+35 505 M
+(        \(product mul ax x\)\)\)) s
+35 494 M
+(    `\(+->+ ,\(name x\) ,\(name ax\)\)\)\)) s
+35 461 M
+(;;; Three boolean values, only one may be true) s
+35 439 M
+(\(define \(choose-exactly-one u v w\)) s
+35 428 M
+(  \(constraint-propagator \(list u v w\)) s
+35 417 M
+(    \(lambda \(\)) s
+35 406 M
+(      \(let-cells \(-u -v -w u+v u+v+w\)) s
+35 395 M
+(        \(inverter -u u\)) s
+35 384 M
+(        \(inverter -v v\)) s
+35 373 M
+(        \(inverter -w w\)) s
+35 351 M
+(        \(p:imp u -v\)) s
+35 340 M
+(        \(p:imp u -w\)) s
+35 318 M
+(        \(p:imp v -u\)) s
+35 307 M
+(        \(p:imp v -w\)) s
+35 285 M
+(        \(p:imp w -u\)) s
+35 274 M
+(        \(p:imp w -v\)) s
+35 252 M
+(        \(disjunction u v u+v\)) s
+35 241 M
+(        \(disjunction u+v w u+v+w\)) s
+35 230 M
+(        \(add-content u+v+w #t\)\)\)) s
+35 219 M
+(    `\(choose-exactly-one ,\(name u\)) s
+35 208 M
+(                         ,\(name v\)) s
+35 197 M
+(                         ,\(name w\)\)\)\)) s
+35 186 M
+(                         ) s
+35 164 M
+(#|) s
+35 153 M
+(\(begin) s
+35 142 M
+(  \(initialize-scheduler\)) s
+35 131 M
+(  \(define-cell x\)) s
+35 120 M
+(  \(define-cell y\)) s
+35 109 M
+(  \(define-cell z\)) s
+35 98 M
+(  \(choose-exactly-one x y z\)) s
+35 87 M
+(  \(\(x 'probe!\) \(lambda args \(pp args\)\)\)) s
+35 76 M
+(  \(\(y 'probe!\) \(lambda args \(pp args\)\)\)) s
+35 65 M
+(  \(\(z 'probe!\) \(lambda args \(pp args\)\)\)) s
+35 54 M
+(  \(run\)) s
+35 43 M
+(  \(add-content x #t 'g\)) s
+35 32 M
+(  \)) s
+35 21 M
+(|#) s
+_R
+S
+%%Trailer
+%%Pages: 4
+%%DocumentNeededResources: font Courier-Bold Courier 
+%%EOF
