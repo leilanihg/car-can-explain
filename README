@@ -1,2 +1,11 @@
+This art of the propagator (for vehicle explanations) is developed for
+mit-scheme mechanics.  
+
 1.  How to read in files / logs
+Start scheme mechanics by typing the following into a terminal:
+>> mechanics 
+
+Load the art of the propagator system for vehicle explanations:
+>> (load "load")
+
 2.  How to initialize a vehicle propagator system with a log.
