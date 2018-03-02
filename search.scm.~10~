@@ -19,18 +19,8 @@
 ;;; along with New Artistic Propagator Prototype.  If not, see
 ;;; <http://www.gnu.org/licenses/>.
 ;;; ----------------------------------------------------------------------
-
+
 (declare (usual-integrations))
-
-#|
-;;; Hypotheticals are a special kind of premise, see tms.scm
-;;; This structure is now defined in scmutils/src/solve/solve.scm
-(define-structure hypothetical name amb-cell)
-|#
-
-;;; However, we need to rename the extra slot:
-(define hypothetical-amb-cell hypothetical-extra)
-(define set-hypothetical-amb-cell! set-hypothetical-extra!)
 
 (define *premise-nogoods* (make-eq-hash-table))
 
@@ -39,7 +29,7 @@
 
 (define (set-premise-nogoods! premise nogoods)
   (hash-table/put! *premise-nogoods* premise nogoods))
-
+
 (define (binary-amb cell)
   (let ((true-premise (make-hypothetical 'true cell))
         (false-premise (make-hypothetical 'false cell)))
@@ -68,10 +58,6 @@
     (define me
       (propagator cell '() amb-choose
                   `(binary-amb ,(name cell))))
-    (eq-put! true-premise 'amb-premise me)
-    (eq-put! false-premise 'amb-premise me)
-    (eq-put! true-premise 'opposite false-premise)
-    (eq-put! false-premise 'opposite true-premise)
     (let ((r (list me)))
       ((constant
         (make-tms

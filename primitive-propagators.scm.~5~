@@ -73,7 +73,7 @@
 
 (define p:square squarer)
 (define p:sqrt sqrter)
-
+
 (define p:exp (function->propagator-constructor g:exp))
 (define p:log (function->propagator-constructor g:log))
 
@@ -82,7 +82,7 @@
 (define >? (function->propagator-constructor generic-> '> apply-comparator))
 (define <=? (function->propagator-constructor generic-<= '<= apply-comparator))
 (define >=? (function->propagator-constructor generic->= '>= apply-comparator))
-
+
 (define inverter (function->propagator-constructor generic-not))
 (define conjoiner-dumb (function->propagator-constructor generic-and))
 (define disjoiner-dumb (function->propagator-constructor generic-or))
@@ -129,7 +129,7 @@
     (propagator (list p if-true if-false) output
       (lambda ()
         (let ((predicate (content p)))
-          (if (nothingness? predicate)
+          (if (nothing? predicate)
               'done
               (add-content
                output
@@ -152,7 +152,7 @@
     (propagator (list p if-true) output
       (lambda ()
         (let ((predicate (content p)))
-          (if (nothingness? predicate)
+          (if (nothing? predicate)
               'done
                (if (generic-true? predicate)
                    (add-content output

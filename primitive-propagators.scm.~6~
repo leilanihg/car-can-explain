@@ -129,7 +129,7 @@
     (propagator (list p if-true if-false) output
       (lambda ()
         (let ((predicate (content p)))
-          (if (nothingness? predicate)
+          (if (nothing? predicate)
               'done
               (add-content
                output
@@ -152,7 +152,7 @@
     (propagator (list p if-true) output
       (lambda ()
         (let ((predicate (content p)))
-          (if (nothingness? predicate)
+          (if (nothing? predicate)
               'done
                (if (generic-true? predicate)
                    (add-content output

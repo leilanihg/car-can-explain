@@ -22,15 +22,9 @@
 
 (declare (usual-integrations))
 
-#|
 ;;; Hypotheticals are a special kind of premise, see tms.scm
-;;; This structure is now defined in scmutils/src/solve/solve.scm
-(define-structure hypothetical name amb-cell)
-|#
 
-;;; However, we need to rename the extra slot:
-(define hypothetical-amb-cell hypothetical-extra)
-(define set-hypothetical-amb-cell! set-hypothetical-extra!)
+(define-structure hypothetical name amb-cell)
 
 (define *premise-nogoods* (make-eq-hash-table))
 
