@@ -8,4 +8,7 @@ Start scheme mechanics by typing the following into a terminal:
 Load the art of the propagator system for vehicle explanations:
 >> (load "load")
 
+Generate the car-environment
+>> (ge car-environment)
+
 2.  How to initialize a vehicle propagator system with a log.

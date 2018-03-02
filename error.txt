@@ -1,0 +1,2 @@
+;Can't bind name in null syntactic environment: insides #[reserved-name-item 86]
+;To continue, call RESTART with an option number:

@@ -56,7 +56,7 @@
 			       front-pressure)
 		       (copier hydraulic
 			       back-pressure)
-		       (define (insides message)
+		       (define (insides-name message)
 			 (case message
 			   ((hydraulic) hydraulic)
 			   ((booster) booster)
@@ -64,7 +64,7 @@
 			   ((front-pressure) front-pressure)
 			   ((back-pressure) back-pressure)
 			   (else #f)))
-		       insides))
+		       insides-name))
   (if (default-object? given-name)
       `(,type ,(map name booster-constant)) ; naming not exactly right
       given-name)))
@@ -91,7 +91,7 @@
 			       left-front-disk-brake)
 		       (copier front-pressure
 			       right-front-disk-brake)
-		       (define (insides message)
+		       (define (insides-name message)
 			 (case message
 			   ((hydraulic) hydraulic)
 			   ((booster) booster)
@@ -99,7 +99,7 @@
 			   ((front-pressure) front-pressure)
 			   ((back-pressure) back-pressure)
 			   (else #f)))
-		       insides))
+		       insides-name))
   (if (default-object? given-name)
       `(,type ,(map name booster-constant)) ; naming not exactly right
       given-name)))
@@ -111,14 +111,14 @@
      (let-cells (rotation friction (diameter diameter-input))
 		(copier pressure friction)
 		(inverter pressure rotation)
-		(define (insides message)
+		(define (insides-name message)
 		  (case message
 		    ((diameter) diameter)
 		    ((pressure) pressure)
 		    ((rotation) rotation)
 		    ((friction) friction)
 		    (else #f)))
-       insides))
+       insides-name))
   (if (default-object? given-name)
       `(,type ,(map name diameter-input))
       given-name)))
@@ -130,14 +130,14 @@
 	  (lambda ()
 	    (let-cells (caliper rotor brake-pad friction)
 		       ; do a bunch of actions on these objects
-		       (define (insides message)
+		       (define (insides-name message)
 			 (case message
 			   ((caliper) caliper)
 			   ((rotor) rotor)
 			   ((brake-pad) brake-pad)
 			   ((friction) friction)
 			   (else #f)))
-		       insides))
+		       insides-name))
 	  (if (default-object? given-name)
 	      `(,type ,(map name diameter))
 	      given-name)))
@@ -148,13 +148,13 @@
    (lambda ()
      (let-cells (speed (speed-conversion-cell speed-conversion))
 		(multiplier rotation speed-conversion-cell speed)
-		(define (insides message)
+		(define (insides-name message)
 		  (case message
 		    ((heading) heading)
 		    ((rotation) rotation)
 		    ((speed) speed)
 		    (else #f)))
-       insides))
+       insides-name))
   (if (default-object? given-name)
       `(,type ,(map name diameter))
       given-name)))
@@ -168,12 +168,12 @@
   (physob (list heading) 
    (lambda ()
      (let-cells (direction)
-		(define (insides message)
+		(define (insides-name message)
 		  (case message
 		    ((heading) heading)
 		    ((direction) direction)
 		    (else #f)))
-       insides))
+       insides-name))
   (if (default-object? given-name)
       `(,type ,(map name diameter))
       given-name)))
@@ -189,12 +189,12 @@
 	      (let-cells (direction)
 			 ; if statement for tires if gas inc 
 			 ; conditional prop?
-			 (define (insides message)
+			 (define (insides-name message)
 			   (case message
 			     ((gas) gas)
 			     ((direction) direction)
 			     (else #f)))
-			 insides))
+			 insides-name))
 	    (if (default-object? given-name)
 		`(,type ,(map name diameter))
 		given-name))))
@@ -218,7 +218,7 @@
 	      (let-cells (component)
 			 ; if statement for tires if gas inc 
 			 ; conditional prop?
-			 (define (insides message)
+			 (define (insides-name message)
 			   (case message
 			     ((component) component)
 			     ((s1) s1)
@@ -233,7 +233,7 @@
 			     ((s10) s10)
 			     ((s11) s11)
 			     (else #f)))
-			 insides))
+			 insides-name))
 	    (if (default-object? given-name)
 		`(,type ,(map name component))
 		given-name))))

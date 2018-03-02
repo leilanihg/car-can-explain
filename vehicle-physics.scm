@@ -56,8 +56,8 @@
 			       front-pressure)
 		       (copier hydraulic
 			       back-pressure)
-		       (define (insides message)
-			 (case message
+		       (define (insides internal-message)
+			 (case internal-message
 			   ((hydraulic) hydraulic)
 			   ((booster) booster)
 			   ((foot-force) foot-force)
@@ -91,8 +91,8 @@
 			       left-front-disk-brake)
 		       (copier front-pressure
 			       right-front-disk-brake)
-		       (define (insides message)
-			 (case message
+		       (define (insides internal-message)
+			 (case internal-message
 			   ((hydraulic) hydraulic)
 			   ((booster) booster)
 			   ((foot-pressure) foot-pressure)
@@ -104,24 +104,51 @@
       `(,type ,(map name booster-constant)) ; naming not exactly right
       given-name)))
 
-; For basic brake modeling
-(define (tire-object diameter-input pressure #!optional given-name)
-  (physob (list diameter-input) 
-   (lambda ()
-     (let-cells (rotation friction (diameter diameter-input))
-		(copier pressure friction)
-		(inverter pressure rotation)
-		(define (insides message)
-		  (case message
-		    ((diameter) diameter)
-		    ((pressure) pressure)
-		    ((rotation) rotation)
-		    ((friction) friction)
-		    (else #f)))
-       insides))
+; Might need the physob for naming
+(define (tire diameter-input rotation-rate center-of-mass-position 
+	      #!optional given-name)
+  (lambda ()
+    (let-cells (friction-force normal-force ; forces on the wheel
+			       (rotation rotation-rate) 
+			       (diameter diameter-input))
+	       (copier pressure friction)
+	       (inverter pressure rotation)
+	       (define (insides internal-message)
+		 (case internal-message
+		   ((diameter) diameter)
+		   ;((pressure) pressure)
+		   ((rotation) rotation)
+		   ((friction-force) friction-force)
+		   ((normal-force) normal-force)
+		   (else #f)))
+	       insides))
   (if (default-object? given-name)
       `(,type ,(map name diameter-input))
-      given-name)))
+      given-name))
+
+; center of mass has two directions; lateral and longitudinal
+(define (center-of-mass brake-pressure steering-angle gas
+			mass-position-initial #!optional given-name)
+  (lambda ()
+    (let-cells (lateral-relative-position
+		longitudinal-relative-position
+		brake-relative mass-position)
+	       (inverter brake-pressure brake-relative)
+	       ; (adder a b c) c = a + b 
+	       ; add [or merge] gas to the mass position
+	       ; take the inverse of the brake pressure
+	       ; add [or merge] the inverse of the brake pressure to the mass posiiton
+	       (define (insides internal-message)
+		 (case internal-message
+		   ((lateral-relative-position) lateral-relative-position)
+		   ((longitudinal-relative-position) longitudinal-relative-position)
+		   ((brake-pressure) brake-pressure)
+		   ((steering-angle) steering-angle)
+		   (else #f)))
+	       insides))
+  (if (default-object? given-name)
+      `(,type ,(map name diameter-input))
+      given-name))
 
 ; May want to take in the entire wheel object
 ; caliper contains a piston
@@ -130,8 +157,8 @@
 	  (lambda ()
 	    (let-cells (caliper rotor brake-pad friction)
 		       ; do a bunch of actions on these objects
-		       (define (insides message)
-			 (case message
+		       (define (insides internal-message)
+			 (case internal-message
 			   ((caliper) caliper)
 			   ((rotor) rotor)
 			   ((brake-pad) brake-pad)
@@ -148,8 +175,8 @@
    (lambda ()
      (let-cells (speed (speed-conversion-cell speed-conversion))
 		(multiplier rotation speed-conversion-cell speed)
-		(define (insides message)
-		  (case message
+		(define (insides internal-message)
+		  (case internal-message
 		    ((heading) heading)
 		    ((rotation) rotation)
 		    ((speed) speed)
@@ -168,8 +195,8 @@
   (physob (list heading) 
    (lambda ()
      (let-cells (direction)
-		(define (insides message)
-		  (case message
+		(define (insides internal-message)
+		  (case internal-message
 		    ((heading) heading)
 		    ((direction) direction)
 		    (else #f)))
@@ -189,53 +216,14 @@
 	      (let-cells (direction)
 			 ; if statement for tires if gas inc 
 			 ; conditional prop?
-			 (define (insides message)
-			   (case message
+			 (define (insides internal-message)
+			   (case internal-message
 			     ((gas) gas)
 			     ((direction) direction)
 			     (else #f)))
 			 insides))
 	    (if (default-object? given-name)
 		`(,type ,(map name diameter))
-		given-name))))
-; Sensor data with lidar
-; 11 components 
-; TODO - connection
-(define (sensor component sensor-trace #!optional given-name)
-  (let ((s1 (list-ref sensor-trace 0))
-	(s2 (list-ref sensor-trace 1))
-	(s3 (list-ref sensor-trace 2))
-	(s4 (list-ref sensor-trace 3))
-	(s5 (list-ref sensor-trace 4))
-	(s6 (list-ref sensor-trace 5))
-	(s7 (list-ref sensor-trace 6))
-	(s8 (list-ref sensor-trace 7))
-	(s9 (list-ref sensor-trace 8))
-	(s10 (list-ref sensor-trace 9))
-	(s11 (list-ref sensor-trace 10)))
-    (physob (list component) 
-	    (lambda ()
-	      (let-cells (component)
-			 ; if statement for tires if gas inc 
-			 ; conditional prop?
-			 (define (insides message)
-			   (case message
-			     ((component) component)
-			     ((s1) s1)
-			     ((s2) s2)
-			     ((s3) s3)
-			     ((s4) s4)
-			     ((s5) s5)
-			     ((s6) s6)
-			     ((s7) s7)
-			     ((s8) s8)
-			     ((s9) s9)
-			     ((s10) s10)
-			     ((s11) s11)
-			     (else #f)))
-			 insides))
-	    (if (default-object? given-name)
-		`(,type ,(map name component))
 		given-name))))
 
 ;;; Some things for initialization
@@ -304,13 +292,6 @@
     left-front-disk-brake right-front-disk-brake))
 )
 
-(define (initialize-perception-system qual-summary)
-  (define-cell lidar-cell)
-
-  (define top-lidar
-    (lidar-cell perception 'lidar))
-)
-
 #|
   (inquire-readable (front-pressure brake-master))
 
@@ -347,69 +328,6 @@
   (set-access 
    (heading-cell gas-cell rotation-cell internal-car-gps steering-wheel gas))
 )
-
-
-;; Tire information 
-(define (diameter tire)
-  (tire 'diameter))
-
-(define (pressure tire)
-  (tire 'pressure))
-
-(define (rotation tire)
-  (tire 'rotation))
-
-; May need to have more brake information
-(define (friction brake)
-  (brake 'friction))
-
-; Cylinder information
-(define (hydraulic cylinder)
-  (cylinder 'hydraulic))
-
-(define (booster cylinder)
-  (cylinder 'booster))
-
-(define (foot-pressure cylinder)
-  (cylinder 'foot-pressure))
-
-(define (front-pressure cylinder)
-  (cylinder 'front-pressure))
-
-(define (back-pressure cylinder)
-  (cylinder 'back-pressure))
-
-; Disk information
-(define (caliper disk)
-  (disk 'caliper))
-
-(define (rotor disk)
-  (disk 'rotor))
-
-(define (brake-pad disk)
-  (disk 'brake-pad))
-
-(define (friction disk)
-  (disk 'friction))
-
-; GPS information
-(define (heading gps)
-  (gps 'heading))
-
-(define (speed gps)
-  (gps 'speed))
-
-; Steering information
-(define (direction steering)
-  (steering 'direction))
-
-(define (heading steering)
-  (steering 'heading))
-
-; Throttle Information
-(define (gas throttle)
-  (throttle 'gas))
-
 
 #|
 

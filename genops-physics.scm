@@ -1,51 +1,51 @@
 ;;; ----------------------------------------------------------------------
-;;; Copyright 2008--2016 Alexey Radul and Gerald Jay Sussman
+;;; Copyright 2008 Alexey Radul and Gerald Jay Sussman.
 ;;; ----------------------------------------------------------------------
-;;; This file is part of New Propagator Prototype.  It is derived from
-;;; the Artistic Propagator Prototype previously developed by Alexey
-;;; Radul and Gerald Jay Sussman.
+;;; This file is part of Artistic Propagator Prototype.
 ;;; 
-;;; New Propagator Prototype is free software; you can redistribute it
-;;; and/or modify it under the terms of the GNU General Public License
-;;; as published by the Free Software Foundation, either version 3 of
-;;; the License, or (at your option) any later version.
+;;; Artistic Propagator Prototype is free software; you can
+;;; redistribute it and/or modify it under the terms of the GNU
+;;; General Public License as published by the Free Software
+;;; Foundation, either version 3 of the License, or (at your option)
+;;; any later version.
 ;;; 
-;;; New Propagator Prototype is distributed in the hope that it will
-;;; be useful, but WITHOUT ANY WARRANTY; without even the implied
+;;; Artistic Propagator Prototype is distributed in the hope that it
+;;; will be useful, but WITHOUT ANY WARRANTY; without even the implied
 ;;; warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 ;;; See the GNU General Public License for more details.
 ;;; 
 ;;; You should have received a copy of the GNU General Public License
-;;; along with New Artistic Propagator Prototype.  If not, see
+;;; along with Artistic Propagator Prototype.  If not, see
 ;;; <http://www.gnu.org/licenses/>.
 ;;; ----------------------------------------------------------------------
-
+
 (declare (usual-integrations make-cell))
 
 (define generic-identity
   (make-generic-operator 1 'identity identity))
 
-#| ;;; Use scmutils g:+, g:-, etc
 (define generic-+   (make-generic-operator 2 '+   +))
 (define generic--   (make-generic-operator 2 '-   -))
 (define generic-*   (make-generic-operator 2 '*   *))
 (define generic-/   (make-generic-operator 2 '/   /))
 (define generic-abs (make-generic-operator 1 'abs abs))
-|#
-
-(define generic-sign
-  (make-generic-operator 1 'generic-sign sign-of-number))
-
-#| ;;; Use scmutils
+(define generic-sign (make-generic-operator 1 'sign sign-of-number))
 (define generic-square (make-generic-operator 1 'square square))
 (define generic-sqrt (make-generic-operator 1 'sqrt sqrt))
-|#
 
-(define generic-=   (make-generic-operator 2 'generic-=   default-equal?))
-(define generic-<   (make-generic-operator 2 'generic-<   <))
-(define generic->   (make-generic-operator 2 'generic->   >))
-(define generic-<=  (make-generic-operator 2 'generic-<=  <=))
-(define generic->=  (make-generic-operator 2 'generic->=  >=))
+(define generic-=   (make-generic-operator 2 '=   default-equal?))
+(define generic-<   (make-generic-operator 2 '<   <))
+(define generic->   (make-generic-operator 2 '>   >))
+(define generic-<=  (make-generic-operator 2 '<=  <=))
+(define generic->=  (make-generic-operator 2 '>=  >=))
+
+(define generic-sin (make-generic-operator 1 'sin sin))
+(define generic-cos (make-generic-operator 1 'cos cos))
+(define generic-tan (make-generic-operator 1 'tan tan))
+
+(define generic-asin (make-generic-operator 1 'asin asin))
+(define generic-acos (make-generic-operator 1 'acos acos))
+(define generic-atan (make-generic-operator 1 'atan atan))
 
 ;; For explaining v&s values
 (define generic-pp (make-generic-operator 1 'pp pp))
@@ -75,7 +75,4 @@
 
 
 (define (generic-extract-value x)
-  (let ((v (tms-query (->tms x))))
-    (cond ((nothing? v) v)
-	  ((v&s? v) (v&s-value v))
-	  (else (error "What is this?" x)))))
+  (v&s-value (tms-query (->tms x))))

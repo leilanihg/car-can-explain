@@ -68,11 +68,18 @@
    ;; "memoizers.scm"     ;unused
    "eq-properties.scm"    ;supplied by scmutils
    "sugar.scm"
-   ;; "ghelper.scm"       ;supplied by scmutils
+   ;;"ghelper-old.scm"       ;supplied by scmutils
    "genops.scm"
-   "cells.scm"            ;defines merge generic operator
+   "cells-physics.scm"            ;defines merge generic operator
 
-   "intervals.scm"
+   "intervals"
+   "qualitative"
+   "qualitative-action"
+   "qualitative-direction"
+   ;"qualitative-position" ; lots of replaced handlers
+   "log-snapshot"
+   "log-interval-qual"
+
    "propagators.scm"
    "primitive-propagators.scm"
    "constraint-propagators.scm"
@@ -82,15 +89,21 @@
    "plunk-and-solve.scm"
    "ui.scm"
    "scheduler.scm"
-   "vehicle.scm"
 
    ;; Test cases
-   "puzzle-utilities.scm"
-   "new-examples-test.scm"
-   "electric.scm"))
-
+   "electric.scm"
+   "car-environment"
+   "vehicle-accessors.scm"))
 
 (stop-scmutils-print)
-((access initialize-scheduler user-propagator-environment))
-(ge user-propagator-environment)
+((access initialize-scheduler 
+	 user-propagator-environment))
+;(ge user-propagator-environment)
+(ge (access car-environment
+	    user-propagator-environment))
+
+;; OLD CODE
+;(stop-scmutils-print)
+;((access initialize-scheduler user-propagator-environment))
+;(ge user-propagator-environment)
 
