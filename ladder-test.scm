@@ -57,8 +57,6 @@
 
 (plunk! (thing '(potential n3)))
 
-(plunk! (thing '(potential n2)))
-
 (cpp (inquire (thing '(potential n3))))
 #;
 ((potential n3) (has-value 1)

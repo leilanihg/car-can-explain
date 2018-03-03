@@ -1,6 +1,6 @@
-;;; ----------------------------------------------------------------------
+;;; ------------------------------------------------------------------
 ;;; Copyright 2008--2016 Alexey Radul and Gerald Jay Sussman
-;;; ----------------------------------------------------------------------
+;;; ------------------------------------------------------------------
 ;;; This file is part of New Propagator Prototype.  It is derived from
 ;;; the Artistic Propagator Prototype previously developed by Alexey
 ;;; Radul and Gerald Jay Sussman.
@@ -18,17 +18,18 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with New Artistic Propagator Prototype.  If not, see
 ;;; <http://www.gnu.org/licenses/>.
-;;; ----------------------------------------------------------------------
-
-;;;; Cells
+;;; ------------------------------------------------------------------
 
 (declare (usual-integrations make-cell))
 
+;;;; Cells
 ;;;  a cell is represented by a message-acceptor.
 ;;;  a cell has a parent, of which it is a part.
 ;;;  there is a top-level parent of the sytem.  the fluid
 ;;;  variable *my-parent* is defined in scheduler.scm
 
+(define *stop-on-contradiction* #f)
+
 (define (make-cell #!optional name)
   (let ((neighbors '()) (content nothing) (probe #f))
     (define (new-neighbor! new-neighbor)
@@ -36,32 +37,23 @@
           (begin (set! neighbors (cons new-neighbor neighbors))
                  (alert-propagators new-neighbor))))
     (define (add-content increment source)  
-      (let ((answer (merge content increment)))
-	(if probe (probe (me 'name) content increment answer source))
-	(cond ((equivalent? answer content) 'ok)
+      (let ((answer (merge content (add-source increment source))))
+      (if probe (probe (me 'name) content increment source answer))
+        (cond ((equivalent? answer content)
+	       'ok)
+              ((contradictory? answer)
+               (if *stop-on-contradiction*
+                   (bkpt "contradiction in cell" (me 'name)))
+               (set! content answer)
+               (note-contradiction! answer))
               (else
-               (let ((v&s-answer (->v&s (strongest-consequence answer))))
-                 (if (contradictory? v&s-answer)
-                     (note-contradiction! v&s-answer answer increment)
-                     (let ((v&s-content
-                            (->v&s (strongest-consequence content))))
-                       (let ((result
-                              (maybe-post-equation! v&s-content v&s-answer)))
-                         (if (contradiction? result)
-                             (note-contradiction! v&s-answer answer increment)
-                             (begin
-                               (set! content answer)
-                               (alert-propagators neighbors)
-                               (let ((result (maybe-solve-equations!)))
-                                 (if (contradiction? result)
-                                     (note-contradiction! v&s-answer answer
-                                                          increment)
-                                     'OK!))))))))))))
-    (define (note-contradiction! v&s-answer answer increment)
-      (set! content answer)
-      (process-nogood! (v&s-support v&s-answer)
-                       (v&s-reasons v&s-answer)
-                       me))
+               (set! content answer)
+               (alert-propagators neighbors)))))
+    (define (note-contradiction! answer)
+      (let ((vs (strongest-consequence answer)))
+        (process-nogood! (v&s-support vs)
+                         (v&s-reasons vs)
+                         me)))
     (define (me message)
       (case message
         ((add-content) add-content)
@@ -111,6 +103,27 @@
 
 (define (content cell)
   (cell 'content))
+
+(define (add-source thing source)
+  (cond ((v&s? thing)
+	 (if (member source (v&s-reasons thing))
+	     thing
+	     (let ((new-reasons
+		    (lset-union equal?
+				(v&s-reasons thing)
+				(list source))))
+	       (supported (v&s-value thing)
+			  (v&s-support thing)
+			  new-reasons))))
+        ((tms? thing)
+         (make-tms 
+          (map (lambda (vs)
+                 (add-source vs source))
+               (tms-values thing))))
+        (else
+         (supported thing 
+                    '() 
+                    (list source)))))
 
 (define nothing
   (list '*the-nothing*))
@@ -136,18 +149,25 @@
          content
          the-contradiction))))
 
+;;; These should have priority.  They don't!
 (assign-operation 'merge
  (lambda (content increment) content)
- any? nothing?)
+ any? nothingness?)
 
 (assign-operation 'merge
  (lambda (content increment) increment)
- nothing? any?)
+ nothingness? any?)
 
 (define contradictory?
   (make-generic-operator 1
                          'contradictory?
                          contradiction?))
+
+
+(define abstract?
+  (make-generic-operator 1
+                         'abstract?
+                         abstract-number?))
 
 (define (equivalent? x y)
   (or (eq? x y)

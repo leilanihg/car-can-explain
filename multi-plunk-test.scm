@@ -53,14 +53,11 @@
 (tell! rR6 1000 'gjs8)
 (tell! rR7 1000 'gjs9)
 
-#|
 (cpp (inquire (thing '(potential n3))))
 #;
 ((potential n3) (has-value (*the-nothing*))
 		(because ())
 		(depends-on))
-
-|#
 
 (plunk! (thing '(potential n3)))
 (plunk! (thing '(potential n2)))
@@ -69,51 +66,109 @@
 #;
 ((potential n3)
  (has-value 50/37)
- (because (solver)
-	  ((- ((a n1) (current t1 R2)) (current t2 R1))
-	   (sum (current t1 R2) (current t2 R1) (a n1))
-	   n1)
-	  ((- ((zero-i R1) (current t1 R1)) (current t2 R1))
-	   (sum (current t1 R1) (current t2 R1) (zero-i R1))
-	   R1)
-	  ((+ ((v R3) (potential n3)) (potential n1))
-	   (sum (v R3) (potential n3) (potential n1))
-	   R3)
-	  ((+ ((v R4) (potential n2)) (potential n1))
-	   (sum (v R4) (potential n2) (potential n1))
-	   R4))
- (depends-on (gjs4) (gjs3) (gjs1) (gjs5) (gjs9)
-	     (gjs2) (gjs8) (gjs7) (gjs6)))
-
+ (because
+  ((- ((potential n1) (v R3)) (potential n3))
+   (sum (v R3) (potential n3) (potential n1))
+   R3))
+ (depends-on (gjs5)
+             (gjs7)
+             (gjs9)
+             (gjs2)
+             (premise-potentialn3_1)
+             (gjs8)
+             (gjs6)
+             (gjs1)
+             (gjs3)
+             (gjs4)))
+
 (cpp (inquire (thing '(potential n2))))
 #;
-((potential n2) (has-value 60/37)
- (because ((- ((potential n2) (v R5)) (potential n3))
-	   (sum (v R5) (potential n3) (potential n2))
-	   R5)
-	  (solver)
-	  ((+ ((v R3) (potential n3)) (potential n1))
-	   (sum (v R3) (potential n3) (potential n1))
-	   R3)
-	  ((+ ((v R4) (potential n2)) (potential n1))
-	   (sum (v R4) (potential n2) (potential n1))
-	   R4)
-	  ((- ((zero-i R1) (current t1 R1)) (current t2 R1))
-	   (sum (current t1 R1) (current t2 R1) (zero-i R1))
-	   R1)
-	  ((- ((a n1) (current t1 R2)) (current t2 R1))
-	   (sum (current t1 R2) (current t2 R1) (a n1))
-	   n1))
- (depends-on (gjs6) (gjs1) (gjs3) (gjs5) (gjs4)
-	     (gjs9) (gjs7) (gjs8) (gjs2)))
+((potential n2)
+ (has-value 60/37)
+ (because
+  ((/ ((v R2) (rR2)) (current t1 R2)) (product (rR2) (current t1 R2) (v R2))
+                                      R2)
+  ((- ((ie_44 n1) (current t2 R1)) (current t1 R2))
+   (sum (current t1 R2) (current t2 R1) (ie_44 n1))
+   n1)
+  ((solver))
+  ((- ((potential n1) (potential n3)) (v R3))
+   (sum (v R3) (potential n3) (potential n1))
+   R3)
+  ((* ((rR3) (current t1 R3)) (v R3)) (product (rR3) (current t1 R3) (v R3))
+                                      R3))
+ (depends-on (gjs4)
+             (gjs3)
+             (gjs1)
+             (gjs6)
+             (gjs8)
+             (premise-potentialn3_1)
+             (gjs2)
+             (gjs9)
+             (gjs7)
+             (gjs5)))
 
 (cpp (inquire (thing '(potential n1))))
 #;
-((potential n1) (has-value 130/37)
- (because ((+ ((v R4) (potential n2)) (potential n1))
-	   (sum (v R4) (potential n2) (potential n1))
-	   R4))
- (depends-on (gjs2) (gjs8) (gjs7) (gjs9) (gjs4)
-	     (gjs5) (gjs3) (gjs1) (gjs6)))
+((potential n1)
+ (has-value 130/37)
+ (because
+  ((+ ((v R2) (potential gnd)) (potential n1))
+   (sum (v R2) (potential gnd) (potential n1))
+   R2))
+ (depends-on (gjs5)
+             (gjs7)
+             (gjs9)
+             (gjs2)
+             (premise-potentialn3_1)
+             (gjs8)
+             (gjs6)
+             (gjs1)
+             (gjs3)
+             (gjs4)))
+
+
+(cpp (content (thing '(potential n3))))
+#;
+(tms
+ ((supported 50/37
+             (gjs5 gjs7 gjs9 gjs2 premise-potentialn3_1 gjs8 gjs6 gjs1 gjs3 gjs4)
+             (#[compound-procedure 46 ...]))
+  (supported
+   (*number* (expression (* 5/6 potentialn2_2)))
+   (gjs6 gjs8 premise-potentialn3_1 gjs2 gjs9 gjs7 premise-potentialn2_2 gjs5)
+   (#[compound-procedure 46 ...] (solver)
+                                 #[compound-procedure 45 ...]
+                                 #[compound-procedure 44 ...]))))
 
 
+(cpp (content (thing '(potential n2))))
+#;
+(supported
+ 60/37
+ (gjs4 gjs3 gjs1 gjs6 gjs8 premise-potentialn3_1 gjs2 gjs9 gjs7 gjs5)
+ (#[compound-procedure 48 me] #[compound-procedure 47 me]
+                              (solver)
+                              #[compound-procedure 45 me]
+                              #[compound-procedure 44 me]))
+
+
+(cpp (content (thing '(potential n1))))
+#;
+(tms
+ ((supported 130/37
+             (gjs5 gjs7 gjs9 gjs2 premise-potentialn3_1 gjs8 gjs6 gjs1 gjs3 gjs4)
+             (#[compound-procedure 50 ...]))
+  (supported
+   (*number* (expression (* 13/6 potentialn2_2)))
+   (gjs6 gjs8 premise-potentialn3_1 gjs2 gjs9 gjs7 premise-potentialn2_2 gjs5)
+   (#[compound-procedure 49 ...] (solver)
+                                 #[compound-procedure 45 ...]
+                                 #[compound-procedure 44 ...]))))
+
+;;; Could not flush premises because n1 and n3 have values in their
+;;; tmss that depend on the potential2_2 that we must get from
+;;; substitution from n2.  But the tmss also have the numerical values
+;;; also.  Perhaps all cells with expressions that have plunk
+;;; variables should save a list and know to flush them when they are
+;;; determined as constants, thus killing off the plunk premises??

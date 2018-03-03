@@ -94,7 +94,8 @@
             (let-cells (v P (zero-i 0))
               (sum v e2 e1)
               (sum i1 i2 zero-i)
-              (product i1 v P)
+              ;;(product i1 v P)
+              (multiplier i1 v P)
               (define (insides message)
                 (case message
                   ((terminals) (list t1 t2))
@@ -139,8 +140,8 @@
               (sum v23 e3 e2)
               (sum i1 i2 i12)
               (sum i12 i3 zero-i)
-              (product i1 v13 P1)
-              (product i2 v23 P2)
+              ;;(product i1 v13 P1)
+              ;;(product i2 v23 P2)
               (sum P1 P2 P)
               (define (insides message)
                 (case message
@@ -231,6 +232,9 @@
 (define (cap! node)
   (assert (node? node))
   (node 'cap!))
+
+(define even-current-name (make-new-symbols "ie_"))
+(define odd-current-name  (make-new-symbols "io_"))
 
 (define (node-helper given-name)
   (let-cells (potential)
@@ -244,8 +248,7 @@
       (define (cap!)
         (assert (not capped?) "Node already capped" (name me))
 	(assert (not (= (length currents) 0))
-		"Node has no currents"
-		(name me))
+		"Node has no currents" (name me))
         (set! capped? #t)
         (fluid-let ((*my-parent* me))
           (let ((isum 
@@ -256,12 +259,13 @@
                             (let ((a1 (lp n/2 (list-head is n/2)))
                                   (a2 (lp n/2 (list-tail is n/2))))
 			      (let-cells (a)
+				(set-cell-name! a (even-current-name))
 				(sum (car a1) (car a2) a)
 				(list a)))))
                          ((odd? n)
-                          (let ((a1 (lp (- n 1) (cdr is)))
-                                (i2 (car is)))
+                          (let ((a1 (lp (- n 1) (cdr is))) (i2 (car is)))
 			    (let-cells (a)
+			      (set-cell-name! a (odd-current-name))
 			      (sum (car a1) i2 a)
 			      (list a))))
                          (else (error))))))
@@ -304,6 +308,43 @@
      (same strength i)
      trivial-insides)
    strength))
+
+(define (short-circuit #!optional given-name)
+  (2-terminal-device 'short-circuit given-name
+   (lambda (v i)
+     ((constant 0) v)
+     trivial-insides)))
+
+(define (open-circuit #!optional given-name)
+  (2-terminal-device 'open-circuit given-name
+   (lambda (v i)
+     ((constant 0) i)
+     trivial-insides)))
+
+(define (port #!optional given-name)
+  (2-terminal-device port given-name
+   (lambda (v i) trivial-insides)))
+
+(define (identify-ports port1 port2)
+  (let ((tps1 (terminals port1))
+	(tps2 (terminals port2)))
+    (if (not (= (length tps1) (length tps2)))
+	(error "identify-ports" port1 port2))
+    (for-each (lambda (tp1 tp2)
+		(identify-terminals tp1 tp2))
+	      tps1 tps2)))
+
+(define (connect-ports port1 port2)
+  (let ((tps1 (terminals port1))
+	(tps2 (terminals port2)))
+    (if (not (= (length tps1) (length tps2)))
+	(error "identify-ports" port1 port2))
+    (let-cells ((zero-i 0))
+      (for-each (lambda (tp1 tp2)
+		  (same (potential tp1) (potential tp2))
+		  (sum (current t1) (current t2) zeroi))
+		tps1 tps2))))
+
 
 (define (ideal-diode v-threshold #!optional given-name)
   (2-terminal-device '(diode anode cathode) given-name
@@ -485,10 +526,7 @@
 
 (cpp (inquire (potential n2)))
 #;
-((potential n2)
- (has-value (*the-nothing*))
- (because ())
- (depends-on))
+((potential n2) (has-value (*the-nothing*)))
 ;;; Of course! no propagation.
 
 ;;; We need a slice!
@@ -515,10 +553,14 @@
 
 (cpp (inquire (potential n2)))
 #;
-((potential n2) (has-value 10)
- (because ((- ((potential n1) (v RL1)) (potential n2))
-	   (sum (v RL1) (potential n2) (potential n1))
-	   RL1))
+((potential n2)
+ (has-value 10)
+ (because
+  ((+ ((v RL2) (potential gnd)) (potential n2))
+   (sum (v RL2) (potential gnd) (potential n2)) RL2)
+  ((- ((potential n1) (v RL1)) (potential n2))
+   (sum (v RL1) (potential n2) (potential n1))
+   RL1))
  (depends-on (gjs2) (gjs3) (gjs4) (gjs1)))
 
 ;;; Slice worked!
@@ -564,25 +606,34 @@
 
 (cpp (inquire (potential n2)))
 #;
-((potential n2) (has-value 10)
- (because ((+ ((v VS) (potential gnd)) (potential n2))
-	   (sum (v VS) (potential gnd) (potential n2))
-	   VS))
+((potential n2)
+ (has-value 10)
+ (because
+  ((- ((potential n1) (v RL1)) (potential n2)) (sum (v RL1) (potential n2) (potential n1)) RL1)
+  ((+ ((v RL2) (potential gnd)) (potential n2)) (sum (v RL2) (potential gnd) (potential n2)) RL2)
+  ((+ ((v VS) (potential gnd)) (potential n2)) (sum (v VS) (potential gnd) (potential n2)) VS))
  (depends-on (gjs1) (gjs2)))
 
 (cpp (inquire (potential n1)))
 #;
-((potential n1) (has-value 0.)
- (because ((+ ((v RL1) (potential n2)) (potential n1))
-	   (sum (v RL1) (potential n2) (potential n1))
-	   RL1))
+((potential n1)
+ (has-value 0.)
+ (because
+  ((+ ((v IS) (potential gnd)) (potential n1)) (sum (v IS) (potential gnd) (potential n1)) IS)
+  ((+ ((v RL1) (potential n2)) (potential n1)) (sum (v RL1) (potential n2) (potential n1)) RL1))
  (depends-on (gjs2) (gjs1) (gjs3) (gjs4)))
 
 (cpp (inquire (thing '(current t1 VS))))
 #;
-((current t1 VS) (has-value -.015)
- (because ((- ((a n2) (current t2 RL1)) (current t1 VS))
-	   (sum (current t2 RL1) (current t1 VS) (a n2))
-	   n2))
+
+((current t1 VS)
+ (has-value -.015)
+ (because
+  ((- ((zero-i VS) (current t2 VS)) (current t1 VS))
+   (sum (current t1 VS) (current t2 VS) (zero-i VS))
+   VS)
+  ((- ((ie_67 n2) (current t2 RL1)) (current t1 VS))
+   (sum (current t2 RL1) (current t1 VS) (ie_67 n2))
+   n2))
  (depends-on (gjs3) (gjs5) (gjs1) (gjs2)))
 |#

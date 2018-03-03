@@ -178,3 +178,13 @@
 (assign-operation 'merge
                   (reverse-args merge-interval-number)
                   number? interval?)
+#|
+;;; Should be unnecessary
+(assign-operation 'merge
+ (lambda (content increment) content)
+ interval? nothingness?)
+
+(assign-operation 'merge
+ (lambda (content increment) increment)
+ nothingness? interval?)
+|#

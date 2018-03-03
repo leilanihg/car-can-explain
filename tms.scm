@@ -19,40 +19,12 @@
 ;;; along with New Artistic Propagator Prototype.  If not, see
 ;;; <http://www.gnu.org/licenses/>.
 ;;; ----------------------------------------------------------------------
-
+
 (declare (usual-integrations))
 
-(define-structure
-  (tms (type list)
-       (named 'tms)
-       (constructor %make-tms)
-       (print-procedure #f))
-  values)
-
-(define (make-tms arg)
-  (cond ((nothing? arg) (%make-tms (list arg)))
-        ((contradiction? arg) (%make-tms (list arg)))
-        ((v&s? arg) (%make-tms (list arg)))
-        ((list? arg)
-         (let ((args
-                (filter (lambda (x)
-                          (not (nothing? x)))
-                        arg)))
-           (if (every v&s? args)
-               (if (null? args)
-                   (%make-tms (list nothing))
-                   (%make-tms args))
-               (error "Bad make-tms" args))))
-        (else (error "Bad make-tms" arg))))
-
-(define-structure
-  (hypothetical (type list)
-		(named 'hypothetical)
-		(print-procedure #f))
-  amb-cell)
+;;; premises!
 
 (define *premise-outness* (make-eq-hash-table))
-
 
 (define (kick-out! premise)
   (if (premise-in? premise) (alert-all-propagators!))
@@ -61,7 +33,7 @@
 (define (bring-in! premise)
   (if (not (premise-in? premise)) (alert-all-propagators!))
   (mark-premise-in! premise))
-
+
 (define (premise-in? premise)
   (not (hash-table/get *premise-outness* premise #f)))
 
@@ -70,23 +42,54 @@
 
 (define (mark-premise-out! premise)
   (hash-table/put! *premise-outness* premise #t))
+
+;;; TMSs
+(define-structure
+  (tms (constructor %make-tms))
+  values)
+
+(define (make-tms arg)
+  (cond ((nothing? arg) (%make-tms (list)))
+        ((contradiction? arg) 
+         (%make-tms (list (->v&s arg))))
+        ((v&s? arg) (%make-tms (list arg)))
+        ((list? arg)
+         (let ((args
+                (filter (lambda (x)
+                          (not (nothingness? x)))
+                        arg)))
+           (if (every v&s? args)
+               (%make-tms args)
+               (error "Bad make-tms" args))))
+        (else (error "Bad make-tms" arg))))
 
 (define (tms-merge tms1 tms2)
   (let ((candidate (tms-assimilate tms1 tms2)))
     (let ((consequence (strongest-consequence candidate)))
-      ;;(check-consistent! consequence)
       (tms-assimilate candidate consequence))))
 
 (assign-operation 'merge tms-merge tms? tms?)
 
+#|;;;Should be unnecessary
+(assign-operation 'merge
+ (lambda (content increment) content)
+ tms? nothingness?)
+
+(assign-operation 'merge
+ (lambda (content increment) increment)
+ nothingness? tms?)
+|#
+
 (define (tms-assimilate tms stuff)
-  (cond ((nothing? stuff) tms)
+  (cond ((nothingness? stuff) tms)
         ((v&s? stuff) (tms-assimilate-one tms stuff))
         ((tms? stuff)
          (fold-left tms-assimilate-one
                     tms
                     (tms-values stuff)))
-        (else (error "This should never happen"))))
+        (else
+         (error "This should never happen")
+         'foo!)))
 
 (define (tms-assimilate-one tms v&s)
   (if (any (lambda (old-v&s)
@@ -103,6 +106,22 @@
                             (tms-values tms)
                             subsumed)
            v&s)))))
+
+(define (equivalent-v&ss? v&s1 v&s2)
+  (or (eq? v&s1 v&s2)
+      (let ((v&s1 (->v&s v&s1)) (v&s2 (->v&s v&s2)))
+        (and (equivalent-values? (v&s-value v&s1)
+                                 (v&s-value v&s2))
+             (lset= equal?
+                    (v&s-support v&s1)
+                    (v&s-support v&s2))
+             (lset= equal?
+                    (v&s-reasons v&s1)
+                    (v&s-reasons v&s2))))))
+
+(define (subsumes-v&s? v&s1 v&s2)
+  (and (implies-values? (v&s-value v&s1) (v&s-value v&s2))
+       (lset<= equal? (v&s-support v&s1) (v&s-support v&s2))))
 
 (define (strongest-consequence tms)
   (let ((relevant-v&ss
@@ -117,10 +136,10 @@
 
 (define (equivalent-tmss? tms1 tms2)
   (or (eq? tms1 tms2)
-      (and (tms? tms1) (tms? tms2)
-           (lset= equivalent-v&ss?
-                  (tms-values tms1)
-                  (tms-values tms2)))))
+      (let ((tms1 (->tms tms1)) (tms2 (->tms tms2)))
+	(lset= equivalent-v&ss?
+	       (tms-values tms1)
+	       (tms-values tms2)))))
 
 #|
 (define (check-consistent! v&s)
@@ -130,12 +149,13 @@
 |#
 
 (define (tms-query tms)
-  (let ((answer (strongest-consequence tms)))
-    (let ((better-tms (tms-assimilate tms answer)))
-      (if (not (eq? tms better-tms))
-          (set-tms-values! tms (tms-values better-tms)))
-      ;; (check-consistent! answer)
-      answer)))
+  (let* ((tms (->tms tms))
+	 (answer (strongest-consequence tms))
+	 (better-tms (tms-assimilate tms answer)))
+    (if (not (eq? tms better-tms))
+	(set-tms-values! tms (tms-values better-tms)))
+    ;; (check-consistent! answer)
+    answer))
 
 (assign-operation 'contradictory?
 		  (lambda (tms)
@@ -146,12 +166,17 @@
 		  (lambda (tms)
 		    (nothingness? (strongest-consequence tms)))
 		  tms?)
+
+(assign-operation 'abstract?
+		  (lambda (tms)
+		    (abstract? (strongest-consequence tms)))
+		  tms?)
 
 (define (tms-unpacking f)
   (lambda args
     (let ((relevant-information
 	   (map (compose ->v&s tms-query ->tms) args)))
-      (if (any nothing?
+      (if (any nothingness?
 	       (map v&s-value relevant-information))
           nothing
           (make-tms (list (apply f relevant-information)))))))
@@ -188,10 +213,11 @@
  (lambda (name underlying-operation)
    (assign-operation
     name (full-tms-unpacking underlying-operation) tms?))
- '(abs square sqrt generic-sign negate invert exp log not imp pmi identity)
+ '(abs square sqrt generic-sign negate invert exp 
+   log not imp pmi identity)
  (list ;; generic-abs generic-square generic-sqrt
-       g:abs g:square g:sqrt generic-sign g:negate g:invert g:exp g:log
-       generic-not generic-imp generic-pmi generic-identity))
+       g:abs g:square g:sqrt generic-sign g:negate g:invert g:exp 
+       g:log generic-not generic-imp generic-pmi generic-identity))
 
 (assign-operation 'merge (coercing ->tms tms-merge) tms? v&s?)
 (assign-operation 'merge (coercing ->tms tms-merge) v&s? tms?)

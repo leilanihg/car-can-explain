@@ -35,9 +35,11 @@
       (let-cells (x/g g+x/g (two 2))
         (divider x g x/g)
         (adder g x/g g+x/g)
-        (divider g+x/g two h)))))
+        (divider g+x/g two h)))
+    ;; given name for the compound propagator
+    'heron-step))
 
-
+#|
 (initialize-scheduler)
 
 (define-cell x)
@@ -49,15 +51,35 @@
 (add-content x 2)
 (add-content guess 1.4)
 (run)
-(cpp (content better-guess))
-;;;#; 1.4142857142857141
 
+;;; Simplest system gives this
+(cpp (content better-guess))
+#;
+1.4142857142857141
+
+;;; But with dependencies (support and reasons)
+(cpp (content better-guess))
+#;
+(supported 1.4142857142857141 () (#[compound-procedure 53 me]))
+
+;;; Printed more nicely
+(cpp (inquire better-guess))
+#;
+((better-guess)
+ (has-value 1.4142857142857141)
+ (because
+  ((/ ((g+x/g heron-step) (two heron-step))
+      (better-guess))
+   heron-step))
+ (depends-on))
+|#
 
 (define (sqrt-network x answer)
   (compound-propagator x answer
     (lambda ()
       (let-cells ((one 1.))
-        (sqrt-iter x one answer)))))
+        (sqrt-iter x one answer)))
+    'sqrt-network))
 
 (define (sqrt-iter x g answer)
   (compound-propagator (list x g) answer
@@ -66,23 +88,30 @@
 		  not-done
 		  x-if-not-done
 		  g-if-not-done
-		  new-g)
+		  new-g
+                  ;;better-answer
+                  )
         (good-enuf? g x done)
         (switch done g answer)
+        ;;(spdt-switch done g better-answer answer)
         (inverter done not-done)
-        (switch not-done x x-if-not-done)
-        (switch not-done g g-if-not-done)
+        (spst-switch not-done x x-if-not-done)
+        (spst-switch not-done g g-if-not-done)
         (heron-step x-if-not-done g-if-not-done new-g)
-        (sqrt-iter x-if-not-done new-g answer)))))
+        (sqrt-iter x-if-not-done new-g answer)
+        ;;(sqrt-iter x-if-not-done new-g better-answer)
+        ))
+    'sqrt-iter))
 
 (define (good-enuf? g x done)
   (compound-propagator (list g x) done
-    (lambda ()
-      (let-cells (g^2 (eps 0.00000001) x-g^2 ax-g^2)
-        (multiplier g g g^2)
-        (subtractor x g^2 x-g^2)
-        (absolute-value x-g^2 ax-g^2)
-        (<? ax-g^2 eps done)))))
+                       (lambda ()
+                         (let-cells (g^2 (eps 0.00000001) x-g^2 ax-g^2)
+                                    (multiplier g g g^2)
+                                    (subtractor x g^2 x-g^2)
+                                    (absolute-value x-g^2 ax-g^2)
+                                    (<? ax-g^2 eps done)))
+                       'good-enuf?))
 
 #|
 (initialize-scheduler)
@@ -211,6 +240,7 @@
 
 (cpp (content fall-time))
 #; #(interval 3.0091 3.1)
+;;; So fall-time improved because of shadow info
 
 (add-content building-height (make-interval 45 45))
 (run)
@@ -373,9 +403,10 @@
 (run)
 (cpp (content building-height))
 #; 
-#(tms (#(supported #(interval 44.51351351351351 48.977777777777774)
-		   (shadows)
-		   (#[compound-procedure 175 me]))))
+(tms
+ ((supported (interval 44.51351351351351 48.977777777777774)
+             (shadows)
+             (#[compound-procedure 176 ...]))))
 
 (define-cell fall-time)
 (fall-duration fall-time building-height)
@@ -384,47 +415,48 @@
  (make-tms (supported (make-interval 2.9 3.1) '(fall-time))))
 (run)
 (cpp (content building-height))
-#; 
-#(tms (#(supported #(interval 44.51351351351351 47.24276000000001)
-		   (fall-time shadows)
-		   (#[compound-procedure 178 me]))
-       #(supported #(interval 44.51351351351351 48.977777777777774)
-		   (shadows)
-		   (#[compound-procedure 175 me]))))
+#;
+(tms
+ ((supported (interval 44.51351351351351 47.24276000000001)
+             (fall-time shadows)
+             (#[compound-procedure 105 ...]))
+  (supported (interval 44.51351351351351 48.977777777777774)
+             (shadows)
+             (#[compound-procedure 103 ...]))))
 
 (cpp (tms-query (content building-height)))
 #;
-#(supported #(interval 44.51351351351351 47.24276000000001)
-	    (fall-time shadows)
-	    (#[compound-procedure 178 me]))
+(supported (interval 44.51351351351351 48.977777777777774)
+           (shadows)
+           (#[compound-procedure 103 me]))
 
 (kick-out! 'fall-time)
 (run)
 (cpp (tms-query (content building-height)))
 #;
-#(supported #(interval 44.51351351351351 48.977777777777774)
-	    (shadows)
-	    (#[compound-procedure 175 me]))
+(supported (interval 44.51351351351351 48.977777777777774)
+           (shadows)
+           (#[compound-procedure 103 me]))
 
 #|
-(cpp (name (car (v&s-reasons (tms-query (content building-height))))))
+(cpp (map name (v&s-reasons (tms-query (content building-height)))))
 #;
-((* (building-height)
-    ((building-shadow)
-     (ratio (similar-triangles (barometer-shadow)
-			       (barometer-height)
-			       (building-shadow)
-			       (building-height)))))
- (product (building-shadow)
-          (ratio (similar-triangles (barometer-shadow)
-				    (barometer-height)
-				    (building-shadow)
-				    (building-height)))
-          (building-height))
- (similar-triangles (barometer-shadow)
-		    (barometer-height)
-		    (building-shadow)
-		    (building-height)))
+(((* ((building-shadow)
+      (ratio (similar-triangles (barometer-shadow)
+                                (barometer-height)
+                                (building-shadow)
+                                (building-height))))
+     (building-height))
+  (product (building-shadow)
+           (ratio (similar-triangles (barometer-shadow)
+                                     (barometer-height)
+                                     (building-shadow)
+                                     (building-height)))
+           (building-height))
+  (similar-triangles (barometer-shadow)
+                     (barometer-height)
+                     (building-shadow)
+                     (building-height))))
 
 ;;; By contrast...
 |#
@@ -434,138 +466,184 @@
 (run)
 (cpp (tms-query (content building-height)))
 #; 
-#(supported #(interval 41.162745 47.24276000000001)
-	    (fall-time)
-	    (#[compound-procedure 178 me]))
+(supported (interval 41.162745 47.24276000000001)
+           (fall-time)
+           (#[compound-procedure 105 me]))
 
 (cpp (content building-height))
 #;
-#(tms (#(supported #(interval 41.162745 47.24276000000001)
-		   (fall-time)
-		   (#[compound-procedure 178 me]))
-       #(supported #(interval 44.51351351351351 47.24276000000001)
-		   (fall-time shadows)
-		   (#[compound-procedure 178 me]))
-       #(supported #(interval 44.51351351351351 48.977777777777774)
-		   (shadows)
-		   (#[compound-procedure 175 me]))))
+(tms
+ ((supported (interval 41.162745 47.24276000000001)
+             (fall-time)
+             (#[compound-procedure 105 ...]))
+  (supported (interval 44.51351351351351 47.24276000000001)
+             (fall-time shadows)
+             (#[compound-procedure 105 ...]))
+  (supported (interval 44.51351351351351 48.977777777777774)
+             (shadows)
+             (#[compound-procedure 103 ...]))))
 
-(add-content building-height (supported 45 '(superintendent)))
+(add-content building-height
+             (supported 45 '(superintendent)))
 
 (run)
 (cpp (content building-height))
 #; 
-#(tms (#(supported 45 (superintendent) ((*universal-ancestor*)))
-       #(supported #(interval 41.162745 47.24276000000001)
-		   (fall-time)
-		   (#[compound-procedure 178 me]))
-       #(supported #(interval 44.51351351351351 47.24276000000001)
-		   (fall-time shadows)
-		   (#[compound-procedure 178 me]))
-       #(supported #(interval 44.51351351351351 48.977777777777774)
-		   (shadows)
-		   (#[compound-procedure 175 me]))))
+(tms
+ ((supported 45 (superintendent) ((*universal-ancestor*)))
+  (supported (interval 41.162745 47.24276000000001)
+             (fall-time)
+             (#[compound-procedure 105 ...]))
+  (supported (interval 44.51351351351351 47.24276000000001)
+             (fall-time shadows)
+             (#[compound-procedure 105 ...]))
+  (supported (interval 44.51351351351351 48.977777777777774)
+             (shadows)
+             (#[compound-procedure 103 ...]))))
 
 (cpp (tms-query (content building-height)))
 #;
-#(supported 45 (superintendent) ((*universal-ancestor*)))
+(supported 45 (superintendent) ((*universal-ancestor*)))
 
 (bring-in! 'shadows)
 (run)
 (cpp (tms-query (content building-height)))
-#; 
-#(supported 45 (superintendent) ((*universal-ancestor*)))
+#;
+(supported 45 (superintendent) ((*universal-ancestor*)))
 
 (cpp (content barometer-height))
-#; 
-#(tms (#(supported #(interval .3 .30327868852459017)
-		   (fall-time superintendent shadows)
-		   ((*universal-ancestor*) #[compound-procedure 189 me]))
-       #(supported #(interval .294010889292196 .30327868852459017)
-		   (superintendent shadows)
-		   (#[compound-procedure 189 me]))
-       #(supported #(interval .3 .3183938287795994)
-		   (fall-time shadows)
-		   ((*universal-ancestor*) #[compound-procedure 189 me]))
-       #(supported #(interval .3 .32)
-		   (shadows)
-		   ((*universal-ancestor*)))))
+#;
+(tms ((supported (interval .3 .32)
+                 (shadows)
+                 ((*universal-ancestor*)))))
+
 
 (cpp (tms-query (content barometer-height)))
 #; 
-#(supported #(interval .3 .30327868852459017)
-	    (fall-time superintendent shadows)
-	    ((*universal-ancestor*) #[compound-procedure 189 me]))
+(supported (interval .3 .32) (shadows) ((*universal-ancestor*)))
 
 (kick-out! 'fall-time)
 (run)
 (cpp (tms-query (content barometer-height)))
 #; 
-#(supported #(interval .3 .30327868852459017)
-	    (superintendent shadows)
-	    ((*universal-ancestor*) #[compound-procedure 189 me]))
+(supported (interval .3 .32) (shadows) ((*universal-ancestor*)))
+
 (bring-in! 'fall-time)
 (run)
 (cpp (tms-query (content barometer-height)))
 #; 
-#(supported #(interval .3 .30327868852459017)
-	    (superintendent shadows)
-	    ((*universal-ancestor*) #[compound-procedure 189 me]))
+(supported (interval .3 .30327868852459017)
+           (superintendent shadows)
+           ((*universal-ancestor*) #[compound-procedure 137 me]))
 
 (cpp (content barometer-height))
 #;
-#(tms (#(supported #(interval .3 .30327868852459017)
-		   (superintendent shadows)
-		   ((*universal-ancestor*) #[compound-procedure 189 me]))
-       #(supported #(interval .3 .3183938287795994)
-		   (fall-time shadows)
-		   ((*universal-ancestor*) #[compound-procedure 189 me]))
-       #(supported #(interval .3 .32)
-		   (shadows)
-		   ((*universal-ancestor*)))))
-
+(tms
+ ((supported (interval .3 .30327868852459017)
+             (superintendent shadows)
+             ((*universal-ancestor*) #[compound-procedure 137 ...]))
+  (supported (interval .3 .3183938287795994)
+             (fall-time shadows)
+             ((*universal-ancestor*) #[compound-procedure 137 ...]))
+  (supported (interval .3 .32) (shadows) ((*universal-ancestor*)))))
 
 (add-content building-height
   (supported (make-interval 46. 50.) '(pressure)))
 (run)
-#; (contradiction (superintendent pressure))
+#; 
+(contradiction #[compound-procedure 51 me]
+	       (superintendent pressure)
+	       ((*universal-ancestor*)))
 
 (cpp (tms-query (content building-height)))
 #; 
-#(supported (contradiction)
-	    (superintendent pressure)
-	    ((*universal-ancestor*)))
+(supported (contradiction) 
+           (superintendent pressure)
+           ((*universal-ancestor*)))
 
 (cpp (tms-query (content barometer-height)))
 #;
-#(supported #(interval .3 .30327868852459017)
-	    (superintendent shadows)
-	    ((*universal-ancestor*) #[compound-procedure 209 me]))
+(supported (interval .3 .30327868852459017)
+           (superintendent shadows)
+           ((*universal-ancestor*) #[compound-procedure 179 me]))
 
 (kick-out! 'superintendent)
 (run)
 (cpp (tms-query (content building-height)))
 #; 
-#(supported #(interval 46. 47.24276000000001)
-	    (fall-time pressure)
-	    (#[compound-procedure 201 me] (*universal-ancestor*)))
+(supported (interval 46. 47.24276000000001)
+           (fall-time pressure)
+           (#[compound-procedure 49 me] (*universal-ancestor*)))
 
 (cpp (tms-query (content barometer-height)))
 #; 
-#(supported #(interval .3005444646098004 .3183938287795994)
-	    (pressure fall-time shadows)
-	    (#[compound-procedure 209 me]))
+(supported (interval .3005444646098004 .3183938287795994)
+           (pressure fall-time shadows)
+           (#[compound-procedure 179 me]))
 
 (bring-in! 'superintendent)
 (kick-out! 'pressure)
 (run)
 (cpp (tms-query (content building-height)))
-#; #(supported 45 (superintendent) ((*universal-ancestor*)))
+#; 
+(supported 45
+           (superintendent)
+           ((*universal-ancestor*)))
+
 (cpp (tms-query (content barometer-height)))
 #; 
-#(supported #(interval .3 .30327868852459017)
-	    (superintendent shadows)
-	    ((*universal-ancestor*) #[compound-procedure 209 me]))
+(supported (interval .3 .30327868852459017)
+           (superintendent shadows)
+           ((*universal-ancestor*) #[compound-procedure 179 me]))
+
+(cpp (explain barometer-height))
+#;
+(((barometer-height)
+  (has-value (interval .3 .30327868852459017))
+  (because
+   ((*
+     ((barometer-shadow)
+      (ratio
+       (similar-triangles (barometer-shadow) (barometer-height) (building-shadow) (building-height))))
+     (barometer-height))
+    (product
+     (barometer-shadow)
+     (ratio
+      (similar-triangles (barometer-shadow) (barometer-height) (building-shadow) (building-height)))
+     (barometer-height))
+    (similar-triangles (barometer-shadow) (barometer-height) (building-shadow) (building-height))))
+  (depends-on (superintendent) (shadows)))
+ ((barometer-shadow)
+  (has-value (interval .366 .37))
+  (because
+   ((/
+     ((barometer-height)
+      (ratio
+       (similar-triangles (barometer-shadow) (barometer-height) (building-shadow) (building-height))))
+     (barometer-shadow))
+    (product
+     (barometer-shadow)
+     (ratio
+      (similar-triangles (barometer-shadow) (barometer-height) (building-shadow) (building-height)))
+     (barometer-height))
+    (similar-triangles (barometer-shadow) (barometer-height) (building-shadow) (building-height))))
+  (depends-on (superintendent) (shadows)))
+ ((ratio similar-triangles)
+  (has-value (interval .8166969147005445 .819672131147541))
+  (because
+   ((/
+     ((building-height) (building-shadow))
+     (ratio
+      (similar-triangles (barometer-shadow) (barometer-height) (building-shadow) (building-height))))
+    (product
+     (building-shadow)
+     (ratio
+      (similar-triangles (barometer-shadow) (barometer-height) (building-shadow) (building-height)))
+     (building-height))
+    (similar-triangles (barometer-shadow) (barometer-height) (building-shadow) (building-height))))
+  (depends-on (shadows) (superintendent)))
+ ((building-height) (has-value 45) (because) (depends-on (superintendent)))
+ ((building-shadow) (has-value (interval 54.9 55.1)) (because) (depends-on (shadows))))
 |#
 
 ;;; Subsection Dependencies for Implicit Search
@@ -660,13 +738,18 @@
 *number-of-calls-to-fail*
 #; 73
 
-(cpp (tms-query (content (car answers))))
+(cpp (inquire (car answers)))
 #;
-#(supported 3
-	    (#(hypothetical #[compound-procedure 242 me])
-	     #(hypothetical #[compound-procedure 243 me])
-	     #(hypothetical #[compound-procedure 244 me]))
-	    ((*universal-ancestor*)))
+((baker)
+ (has-value 3)
+ (because
+  ((conditional (amb-cell-from-one-of-1)
+                (cell)
+                (link-cell-from-one-of-1)
+                (baker))))
+ (depends-on (hypothetical false (amb-cell-from-one-of-2))
+             (hypothetical true (amb-cell-from-one-of-3))
+             (hypothetical false (amb-cell-from-one-of-1))))
 |#
 
 #|

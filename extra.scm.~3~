@@ -1,0 +1,138 @@
+#|
+(define (use-solutions eqns unknowns)
+  (define (gobble vars values justifications residuals)
+    (let ((plunk-premises
+           (map (lambda (var)
+                  (eq-get var 'plunk-premise))
+                vars)))
+      (for-each
+       (lambda (var value justification plunk-premise)
+         (let ((premises
+                (lset-difference eq?
+                  (apply lset-union eq?
+                         (map car justification))
+                  plunk-premises))
+               (reasons
+                (lset-adjoin eq?
+                  (apply lset-union eq?
+                         (map cadr justification))
+                  'solver)))
+           (if *debugging-solve*
+               (pp `(solved ,var = ,value)))
+           (add-content (eq-get var 'plunk-cell)
+             (make-tms
+              (supported (maybe-symbolic-result value)
+			 premises
+			 reasons)))))
+       vars values justifications plunk-premises)
+      (for-each kick-out! plunk-premises)
+      (if *debugging-solve*
+          (pp `(residuals ,residuals)))
+      (set! *posted-equations* residuals)))
+  gobble)
+|#
+
+(let ((unsolved (plunk-variables val)))
+           (if (not (null? unsolved))
+               ))
+
+
+
+
+(define (use-solutions equations unknowns)
+  (define (gobble vars values justifications residuals)
+    ;;(set! *posted-equations* residuals)
+    (let ((voids '()) (knowns '()) (results '()) (justs '()))
+      (for-each
+       (lambda (var val just)
+         (let ((unsolved (plunk-variables val)))
+           (if (not (null? unsolved))
+               (for-each                ;unfinished work
+                (lambda (eqn)
+                  (set! equations (delq eqn equations))
+                  (set! *posted-equations*
+                        (cons eqn *posted-equations*)))
+                (filter
+                 (lambda (eqn)
+                   (not (null?
+                         (lset-intersection eq?
+                           unsolved
+                           (equation-variables eqn)))))
+                 residuals))
+               (begin                   ;solved vars
+                 (set! voids
+                       (cons (eq-get var 'plunk-premise)
+                             voids))
+                 (set! knowns (cons var knowns))
+                 (set! results (cons val results))
+                 (set! justs (cons just justs))))))
+       vars values justifications)
+      (for-each
+       (lambda (var val just)
+         (let ((premises
+                (lset-difference eq?
+                  (apply lset-union eq? (map car just))
+                  voids))
+               (reasons
+                (lset-adjoin eq?
+                  (apply lset-union eq? (map cadr just))
+                  'solver)))
+           (if *debugging-solve* (pp `(solved ,var = ,val)))
+           (add-content (eq-get var 'plunk-cell)
+             (make-tms
+              (supported (maybe-symbolic-result val)
+                         premises
+                         reasons)))))
+       knowns results justs)
+      (for-each kick-out! voids)
+      (if *debugging-solve*
+          (pp `(new-posts ,*posted-equations*)))))
+  gobble)
+
+(define (use-solutions equations unknowns)
+  (define (gobble vars values justifications residuals)
+    ;;(set! *posted-equations* residuals)
+    (let ((voids '()) (knowns '()) (results '()) (justs '()))
+      (for-each
+       (lambda (var val just)
+         (let ((unsolved (plunk-variables val)))
+           (if (not (null? unsolved))
+               (for-each                ;unfinished work
+                (lambda (eqn)
+                  (set! equations (delq eqn equations))
+                  (set! *posted-equations*
+                        (cons eqn *posted-equations*)))
+                (filter
+                 (lambda (eqn)
+                   (not (null?
+                         (lset-intersection eq?
+			    unsolved (equation-variables eqn)))))
+                 residuals))))
+	 (set! voids
+	       (cons (eq-get var 'plunk-premise)
+		     voids))
+	 (set! knowns (cons var knowns))
+	 (set! results (cons val results))
+	 (set! justs (cons just justs)))
+       vars values justifications)
+      (for-each
+       (lambda (var val just)
+         (let ((premises
+                (lset-difference eq?
+                  (apply lset-union eq? (map car just))
+                  voids))
+               (reasons
+                (lset-adjoin eq?
+                  (apply lset-union eq? (map cadr just))
+                  'solver)))
+           (if *debugging-solve* (pp `(solved ,var = ,val)))
+           (add-content (eq-get var 'plunk-cell)
+             (make-tms
+              (supported (maybe-symbolic-result val)
+                         premises
+                         reasons)))))
+       knowns results justs)
+      (for-each kick-out! voids)
+      (if *debugging-solve*
+          (pp `(new-posts ,*posted-equations*)))))
+  gobble)

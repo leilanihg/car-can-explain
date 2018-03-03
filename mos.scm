@@ -140,3 +140,61 @@
  (depends-on (gjs3) (gjs4) (gjs2) (gjs1)))
 
 |#
+
+#|
+(initialize-scheduler)
+
+(define TOP (node 'TOP))
+(define GND (node 'GND))
+
+(define-cell K 2/1000)
+(define-cell VT 1)
+
+(define S (node 'S))
+(define G (node 'G))
+(define D (node 'D))
+
+(define Q
+  ((n-channel-mosfet K VT 'Q 'saturated) G D S))
+
+(define-cell RRd)
+(define RD
+  ((linear-resistor RRd 'RD) TOP D))
+
+
+(define-cell RRs)
+(define RS
+  ((linear-resistor RRs 'RS) S GND))
+
+(define-cell VCC)
+(define VPS  ((voltage-source VCC 'VCC) TOP GND))
+
+(define-cell VIN)
+(define VD  ((voltage-source VIN 'VIN) G GND))
+
+(cap! TOP)
+(cap! GND)
+(cap! G)
+(cap! D)
+(cap! S)
+
+(tell! VCC 15 'gjs1)
+(tell! (potential GND) 0 'gjs2)
+(tell! RRd 5000  'gjs3)
+(tell! RRs 1000  'gjs4)
+
+(tell! VIN 3  'gjs5)
+
+(cpp (inquire (thing '(current d Q))))
+
+;(tell! (thing '(vov Q)) 1 'bar)
+;(plunk! (thing '(vov Q)))
+;(tell! (thing '(current d Q)) 1/1000 'foo)
+;(plunk! (thing '(current d Q)))
+;;; Plunks are failing because wrong root of quadratic is found.
+
+(cpp (inquire (thing '(current d Q))))
+
+(cpp (inquire (thing '(potential D))))
+
+|#

@@ -73,6 +73,6 @@
 
 (define (generic-extract-value x)
   (let ((v (tms-query (->tms x))))
-    (cond ((nothing? v) v)
+    (cond ((nothingness? v) v)
 	  ((v&s? v) (v&s-value v))
 	  (else (error "What is this?" x)))))

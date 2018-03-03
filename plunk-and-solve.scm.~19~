@@ -1,0 +1,420 @@
+;;; ----------------------------------------------------------------------
+;;; Copyright 2016 Alexey Radul and Gerald Jay Sussman
+;;; ----------------------------------------------------------------------
+;;; This file is part of New Propagator Prototype.  It is derived from
+;;; the Artistic Propagator Prototype previously developed by Alexey
+;;; Radul and Gerald Jay Sussman.
+;;; 
+;;; New Propagator Prototype is free software; you can redistribute it
+;;; and/or modify it under the terms of the GNU General Public License
+;;; as published by the Free Software Foundation, either version 3 of
+;;; the License, or (at your option) any later version.
+;;; 
+;;; New Propagator Prototype is distributed in the hope that it will
+;;; be useful, but WITHOUT ANY WARRANTY; without even the implied
+;;; warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+;;; See the GNU General Public License for more details.
+;;; 
+;;; You should have received a copy of the GNU General Public License
+;;; along with New Artistic Propagator Prototype.  If not, see
+;;; <http://www.gnu.org/licenses/>.
+;;; ----------------------------------------------------------------------
+
+(define (plunk! cell #!optional var)
+  (assert (cell? cell) "Can only plunk a cell.")
+  (if (default-object? var)
+      (set! var (make-plunk-variable)))
+  (assert (symbol? var) "Plunk var must be symbol")
+  (let ((premise (symbol "premise-" var)))
+    (eq-put! premise 'premise #t)
+    (eq-put! var 'plunk-premise premise)
+    (eq-put! premise 'plunk-var var)
+    (eq-put! var 'plunk-cell cell)
+    (add-content cell
+      (make-tms (supported var (list premise))))
+    (run)))
+
+(define make-plunk-variable (make-new-symbols "plunk-"))
+
+;;; A plunk will cause propagation of symbolic expressions.
+;;; Eventually these will collide in MERGE, causing EQUATE!  to be
+;;; invoked.  This does not create an equation, but it catches obvious
+;;; contradictions.
+
+(define *numeric-merge-tolerance* 1e-15)
+(define *symbolic-merge-tolerance* 1e-5)
+
+(define (equate! *lhs *rhs)
+  (let* ((lhs (g:simplify *lhs)) (rhs (g:simplify *rhs)))
+    (if *debugging-solve* (pp `(equate! ,lhs ,rhs)))
+    (cond ((equal? lhs rhs)
+	   (maybe-symbolic-result lhs))
+	  ((and (number? lhs) (number? rhs))
+	   (if (default-equal? lhs rhs *numeric-merge-tolerance*)
+	       lhs
+	       the-contradiction))
+	  (else
+	   (let ((diff (g:simplify (symb:- lhs rhs))))
+	     (if (and (number? diff)
+		      (default-equal? diff 0
+				      *symbolic-merge-tolerance*))
+		 (maybe-symbolic-result
+		  (choose-simpler-expression lhs rhs))
+		 (let ((vars (plunk-variables diff)))
+		   (if (null? vars)
+		       the-contradiction
+		       (maybe-symbolic-result
+			(choose-simpler-expression lhs rhs))))))))))
+	      
+(assign-operation 'merge equate! abstract-number? abstract-number?)
+(assign-operation 'merge equate! number? abstract-number?)
+(assign-operation 'merge equate! abstract-number? number?)
+
+(define *equation-residual-tolerance* 1e-7)
+
+(define (maybe-post-equation! v&s-content v&s-answer)
+  (let ((*lhs (v&s-value v&s-content))
+        (*rhs (v&s-value v&s-answer)))
+    (if (or (and (abstract-number? *lhs) (numeric? *rhs))
+            (and (abstract-number? *rhs) (numeric? *lhs)))
+        (let* ((lhs (g:simplify *lhs))
+               (rhs (g:simplify *rhs))
+               (diff (g:simplify (symb:- lhs rhs)))
+               (residual (if (quotient? diff)
+                             (symb:numerator diff)
+                             diff)))
+          (if *debugging-solve*
+              (pp `(maybe-posting ,residual)))
+          (if (and (number? residual)
+                   (default-equal? residual 0
+				   *equation-residual-tolerance*))
+              'nothing-to-do
+              (let ((unknowns (plunk-variables residual)))
+                (if (null? unknowns)
+                    the-contradiction
+                    (accumulate-equation residual
+                                         (merge-supports v&s-content
+                                                         v&s-answer)
+                                         (merge-reasons  v&s-content
+                                                         v&s-answer)
+                                         unknowns)))))
+	'nothing-to-do)))
+
+(define (accumulate-equation residual supports reasons unknowns)
+  (if *debugging-solve*
+      (pp `(posting ,residual)))
+  (let ((equation-with-same-residual
+         (find (lambda (e)
+                 (trivially-equivalent? (equation-expression e)
+                                        residual))
+               *posted-equations*)))
+    (if equation-with-same-residual     ;seen before
+        (if (lset< eq?                  
+                   supports             ;more informative
+                   (caaadr equation-with-same-residual))
+            (set-car! (cadr equation-with-same-residual)
+                      (list supports reasons))
+            'nothing-to-do)
+        (set! *posted-equations*
+              (cons (list residual
+                          (list (list supports reasons))
+                          unknowns)
+                    *posted-equations*)))))
+
+(define (equation-difficulty equation)
+  (apply +
+         (map (max-exponent (equation-expression equation))
+              (equation-variables equation))))
+
+(define (maybe-solve-equations!)
+  (set! *posted-equations*
+        (sort *posted-equations*
+              (lambda (eqn1 eqn2)
+                (< (equation-difficulty eqn1)
+                   (equation-difficulty eqn2)))))
+  (let ((eqns *posted-equations*)
+        (unknowns
+         (apply lset-union equal?
+                (map equation-variables *posted-equations*))))
+    (if (>= (length eqns) (length unknowns))
+        (general-solve eqns unknowns
+		       (use-solutions eqns unknowns)
+		       (lambda ()
+			 the-contradiction)
+                       (lambda ()
+                         'cannot-solve-equations))
+        'not-enough-equations)))
+
+;;; The general case for many equations and unknowns
+
+(define (general-solve-symbolic eqns unknowns
+                                succeed
+                                contradiction-failure
+                                inadequate-solver-failure)
+  (if *debugging-solve* (pp `(solving ,eqns ,unknowns)))
+  (let ((solution (solve-incremental eqns unknowns)))
+    (cond ((symbol? (car solution))
+           (case (car solution)
+             ((contradictions)
+              (contradiction-failure))
+             ((failed) (pp solution)
+              (inadequate-solver-failure))
+             (else (error "Unknown message from solver" solution))))
+          ((and (null? (filter contradictory-equation? ;Paranoia
+                               (residual-equations solution)))
+                (null? (filter contradictory-equation? ;Paranoia
+                               (tough-equations solution))))
+           (let ((subs (substitutions solution)))
+             (succeed (map substitution-variable subs)
+                      (map substitution-expression subs)
+                      (map substitution-justifications subs)
+                      (residual-equations solution))))
+          (else (contradiction-failure)))))
+
+(define *debugging-solve* #f)
+
+(define general-solve general-solve-symbolic)
+
+(define (use-solutions equations unknowns)
+  (define (gobble vars values justifications residuals)
+    ;;(set! *posted-equations* residuals)
+    (let ((voids '()) (knowns '()) (results '()) (justs '()))
+      (for-each
+       (lambda (var val just)
+         (let ((unsolved (plunk-variables val)))
+           (if (not (null? unsolved))
+               (for-each                ;unfinished work
+                (lambda (eqn)
+                  (set! equations (delq eqn equations))
+                  (set! *posted-equations*
+                        (cons eqn *posted-equations*)))
+                (filter
+                 (lambda (eqn)
+                   (not (null?
+                         (lset-intersection eq?
+                           unsolved
+                           (equation-variables eqn)))))
+                 residuals))
+               (begin                   ;solved vars
+                 (set! voids
+                       (cons (eq-get var 'plunk-premise)
+                             voids))
+                 (set! knowns (cons var knowns))
+                 (set! results (cons val results))
+                 (set! justs (cons just justs))))))
+       vars values justifications)
+      (for-each
+       (lambda (var val just)
+         (let ((premises
+                (lset-difference eq?
+                  (apply lset-union eq? (map car just))
+                  voids))
+               (reasons
+                (lset-adjoin eq?
+                  (apply lset-union eq? (map cadr just))
+                  'solver)))
+           (if *debugging-solve* (pp `(solved ,var = ,val)))
+           (add-content (eq-get var 'plunk-cell)
+             (make-tms
+              (supported (maybe-symbolic-result val)
+                         premises
+                         reasons)))))
+       knowns results justs)
+      (for-each kick-out! voids)
+      (if *debugging-solve*
+          (pp `(new-posts ,*posted-equations*)))))
+  gobble)
+
+(define (choose-simpler-expression lhs rhs)
+  (cond ((number? lhs) lhs)
+        ((number? rhs) rhs)
+        (else
+         (let ((vlhs (plunk-variables lhs))
+               (vrhs (plunk-variables rhs)))
+           (let ((elhs (map (max-exponent lhs) vlhs))
+                 (erhs (map (max-exponent rhs) vrhs)))
+             (let ((wlhs (apply + elhs))
+                   (wrhs (apply + erhs)))
+               (cond ((< wlhs wrhs) lhs)
+                     ((< wrhs wlhs) rhs)
+                     (else lhs))))))))
+
+(define ((max-exponent expression) var)
+  (let lp ((expr expression))
+    (cond ((null? expr) 0)
+	  ((equal? expr var) 1)
+	  ((expt? expr)
+	   (if (equal? (car (operands expr)) var)
+	       (cadr (operands expr))
+	       0))
+	  ((list? expr)
+	   (apply max (map lp expr)))
+	  (else 0))))
+
+(define (plunk-variable? sym)
+  (eq-get sym 'plunk-premise))
+
+(define (plunk-variables expr)
+  (cond ((pair? expr)
+         (lset-union eq?
+                     (plunk-variables (car expr))
+                     (plunk-variables (cdr expr))))
+        ((plunk-variable? expr)
+         (list expr))
+        (else '())))
+
+
+(define (maybe-symbolic-result expr)
+  (if (numeric? expr)
+      expr
+      (literal-number expr)))
+
+(define (sign-of-abstract-number x)
+  (let ((n (g:simplify x)))
+    (if (number? n)
+        (sign-of-number n)
+        nothing)))
+
+(assign-operation 'generic-sign
+                  sign-of-abstract-number
+                  abstract-number?)
+
+(define (abs-of-abstract-number x)
+  (let ((n (g:simplify x)))
+    (if (number? n)
+        (n:abs n)
+        nothing)))
+
+(assign-operation 'abs
+                  abs-of-abstract-number
+                  abstract-number?)
+
+(define *symbolic-equality-acceptance-tolerance* 1e-4)
+
+(define (symbolic-equal? x y)
+  (let ((nx (g:simplify x)) (ny (g:simplify y)))
+    (let ((diff (g:simplify (symb:- nx ny))))
+      (and (number? diff)
+	   (default-equal? diff 0
+			   *symbolic-equality-acceptance-tolerance*)))))
+
+(assign-operation 'generic-=
+                  symbolic-equal?
+                  abstract-number? abstract-number?)
+
+(assign-operation 'generic-=
+                  symbolic-equal?
+                  number? abstract-number?)
+(assign-operation 'generic-=
+                  symbolic-equal?
+                  abstract-number? number?)
+
+(define (trivially-equivalent? r1 r2)
+  (let ((nr1 (g:simplify r1)) (nr2 (g:simplify r2)))
+    (or (equal? r1 r2)
+	(if (and (number? nr1) (number? nr2))
+	    (default-equal? nr1 nr2
+			    *equation-residual-tolerance*)
+	    (let ((quo (g:simplify (symb:/ nr1 nr2))))
+	      (number? quo))))))
+
+#|
+;;; Exact solution of 1 quasi-linear equation:
+
+(define (solve-one-var-algebraic eqn var succeed fail)
+  (isolatable? var eqn succeed fail))
+
+;;; Numerical methods are often better, because floating
+;;; point kills symbolic manipulation (polynomial gcd).
+
+(define (solve-one-var-bisection eqn var succeed fail)
+  (let ((f (lambda->numerical-procedure
+            `(lambda (,var) ,(equation-expression eqn)))))
+    (find-a-root f
+                 (- root-search-bounds)
+                 root-search-bounds
+                 root-search-interval
+                 bisection-search-tolerance
+                 succeed
+                 fail)))
+
+(define root-search-bounds 100.0)
+(define root-search-interval 0.1)
+(define root-search-tolerance 1e-15)
+
+;;; Set this to desired method
+(define solve-one-var solve-one-var-algebraic)
+;;; (define solve-one-var solve-one-var-bisection)
+;;; In any case, gobble up a solution using this method.
+
+(define (use-solution-1 argument var lhs rhs)
+  (let ((plunk-premise (eq-get var 'plunk-premise))
+        (cell (eq-get var 'plunk-cell)))
+    (let ((premises
+           (delq plunk-premise
+             (apply lset-union eq? (map car argument))))
+          (reasons
+           (lset-adjoin eq?
+             (apply lset-union eq? (map cadr argument))
+             'solver)))
+      (define (gobble value)
+        (let ((val (g:simplify value)))
+          `(,var = ,val)
+          (kick-out! plunk-premise)
+          (add-content cell
+                       (supported (maybe-symbolic-result val)
+				  premises reasons))
+          (maybe-symbolic-result
+           (choose-simpler-expression
+            (g:simplify (substitute val var lhs))
+            (g:simplify (substitute val var rhs))))))
+      gobble)))
+
+;;; Numerical solutions of many equations all depend 
+;;; on all of the equations, but symbolic solutions 
+;;; may be more discriminating as to dependencies.
+
+(define (general-solve-numerical eqns unknowns
+                                 succeed
+                                 contradiction-failure
+                                 inadequate-solver-failure)
+             #!optional initial-point initial-step min-step
+             tolerance)
+  (let ((n (length unknowns))
+        (cfail (lambda (dismiss) (contradiction-failure)))
+        (ifail (lambda (dismiss) (inadequate-solver-failure))))
+    (assert (>= (length eqns) n) "not enuf equations")
+    (if (default-object? initial-point)
+        (set! initial-point (make-vector n 1.5)))
+    (if (default-object? initial-step)
+        (set! initial-step (make-vector n 0.1)))
+    (if (default-object? min-step)
+        (set! min-step (* 10 n *machine-epsilon*)))
+    (if (default-object? tolerance)
+        (set! tolerance (* 100 n *machine-epsilon*)))
+    (let* ((v (generate-uninterned-symbol 'v))
+           (f (lambda->numerical-procedure
+               `(lambda (,v)
+                  (let ,(map (lambda (unknown i)
+                               `(,unknown (vector-ref ,v ,i)))
+                             unknowns (iota (length unknowns)))
+                    (vector ,@(map equation-expression eqns)))))))
+      (multidimensional-root-internal f initial-point
+                                      initial-step min-step
+        (lambda (proposed-root)
+          (let* ((justification
+                  (map car (map equation-justifications eqns)))
+                 (justifications
+                  (map (lambda (unk) justification) unknowns)))
+            (let ((value (f proposed-root)))
+              (if (< (maxnorm value) tolerance)
+                  (succeed unknowns
+                           (vector->list proposed-root)
+                           justifications
+                           '())
+                  (cfail)))))            ;contradiction failure?
+        ifail))))                        ;underdetermined failure?
+                                         ; Cannot distinguish!
+
+;;; (define general-solve general-solve-numerical)
+|#

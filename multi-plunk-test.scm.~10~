@@ -1,0 +1,524 @@
+;;;; A complicated network that requires 2 plunk variables.
+
+(initialize-scheduler)
+
+(define n0 (node 'n0))
+
+(define n1 (node 'n1))
+
+(define n2 (node 'n2))
+
+(define n3 (node 'n3))
+
+(define gnd (node 'gnd))
+
+(define-cell V)
+(define VS ((voltage-source V 'VS) n0 gnd))
+
+(define-cell rR1)
+(define R1 ((linear-resistor rR1 'R1) n0 n1))
+
+(define-cell rR2)
+(define R2 ((linear-resistor rR2 'R2) n1 gnd))
+
+(define-cell rR3)
+(define R3 ((linear-resistor rR3 'R3) n1 n3))
+
+(define-cell rR4)
+(define R4 ((linear-resistor rR4 'R4) n1 n2))
+
+(define-cell rR5)
+(define R5 ((linear-resistor rR5 'R5) n2 n3))
+
+(define-cell rR6)
+(define R6 ((linear-resistor rR6 'R6) n2 gnd))
+
+(define-cell rR7)
+(define R7 ((linear-resistor rR7 'R7) n3 gnd))
+
+(cap! n0)
+(cap! n1)
+(cap! n2)
+(cap! n3)
+(cap! gnd)
+
+(tell! V 10 'gjs1)
+(tell! (thing '(potential gnd)) 0 'gjs2)
+
+(tell! rR1 1000 'gjs3)
+(tell! rR2 1000 'gjs4)
+(tell! rR3 2000 'gjs5)
+(tell! rR4 1000 'gjs6)
+(tell! rR5 1000 'gjs7)
+(tell! rR6 1000 'gjs8)
+(tell! rR7 1000 'gjs9)
+
+(cpp (inquire (thing '(potential n3))))
+#;
+((potential n3) (has-value (*the-nothing*))
+		(because ())
+		(depends-on))
+
+(plunk! (thing '(potential n3)))
+(plunk! (thing '(potential n2)))
+
+(cpp (inquire (thing '(potential n3))))
+#;
+((potential n3)
+ (has-value 50/37)
+ (because (solver)
+	  ((- ((a n1) (current t1 R2)) (current t2 R1))
+	   (sum (current t1 R2) (current t2 R1) (a n1))
+	   n1)
+	  ((- ((zero-i R1) (current t1 R1)) (current t2 R1))
+	   (sum (current t1 R1) (current t2 R1) (zero-i R1))
+	   R1)
+	  ((+ ((v R3) (potential n3)) (potential n1))
+	   (sum (v R3) (potential n3) (potential n1))
+	   R3)
+	  ((+ ((v R4) (potential n2)) (potential n1))
+	   (sum (v R4) (potential n2) (potential n1))
+	   R4))
+ (depends-on (gjs4) (gjs3) (gjs1) (gjs5) (gjs9)
+	     (gjs2) (gjs8) (gjs7) (gjs6)))
+
+(cpp (inquire (thing '(potential n2))))
+#;
+((potential n2) (has-value 60/37)
+ (because ((- ((potential n2) (v R5)) (potential n3))
+	   (sum (v R5) (potential n3) (potential n2))
+	   R5)
+	  (solver)
+	  ((+ ((v R3) (potential n3)) (potential n1))
+	   (sum (v R3) (potential n3) (potential n1))
+	   R3)
+	  ((+ ((v R4) (potential n2)) (potential n1))
+	   (sum (v R4) (potential n2) (potential n1))
+	   R4)
+	  ((- ((zero-i R1) (current t1 R1)) (current t2 R1))
+	   (sum (current t1 R1) (current t2 R1) (zero-i R1))
+	   R1)
+	  ((- ((a n1) (current t1 R2)) (current t2 R1))
+	   (sum (current t1 R2) (current t2 R1) (a n1))
+	   n1))
+ (depends-on (gjs6) (gjs1) (gjs3) (gjs5) (gjs4)
+	     (gjs9) (gjs7) (gjs8) (gjs2)))
+
+(cpp (inquire (thing '(potential n1))))
+#;
+((potential n1) (has-value 130/37)
+ (because ((+ ((v R4) (potential n2)) (potential n1))
+	   (sum (v R4) (potential n2) (potential n1))
+	   R4))
+ (depends-on (gjs2) (gjs8) (gjs7) (gjs9) (gjs4)
+	     (gjs5) (gjs3) (gjs1) (gjs6)))
+
+
+#|
+;;; Here is a bug!
+
+(cpp (content (potential n3)))
+#;
+(tms
+ ((supported
+   50/37
+   (gjs6 gjs1 gjs8 gjs4 gjs3 gjs2 gjs9 gjs7 gjs5)
+   (#[compound-procedure 82 ...] solver #[compound-procedure 81 ...] #[compound-procedure 80 ...]))
+  (supported (*number* (expression (+ 10/11 (* 3/11 potentialn2_2))))
+             (gjs1 gjs8 gjs4 gjs3 premise-potentialn3_1 gjs2 gjs9 gjs7 premise-potentialn2_2 gjs5)
+             (solver #[compound-procedure 81 ...] #[compound-procedure 80 ...]))
+  (supported
+   (*number* (expression (* 5/6 potentialn2_2)))
+   (gjs5 gjs9 premise-potentialn2_2 gjs2 gjs8 gjs7 premise-potentialn3_1 gjs6)
+   (#[compound-procedure 81 ...] solver #[compound-procedure 80 ...] #[compound-procedure 82 ...]))
+  (supported potentialn3_1
+             (premise-potentialn3_1)
+             (#[compound-procedure 81 ...] #[compound-procedure 80 ...] (*universal-ancestor*)))))
+
+
+(define p3 'premise-potentialn3_1)
+
+(define p2 'premise-potentialn2_2)
+
+
+(premise-in? p3)
+;Value: #f
+
+(premise-in? p2)
+;Value: #f
+
+(retract! 'gjs1)
+
+(cpp (inquire (potential n3)))
+#;
+((potential n3) (has-value (*the-nothing*)))
+
+(assert! p3)
+
+(assert! p2)
+
+(pp (inquire (potential n3)))
+#;
+((potential n3)
+ (has-value 0)
+ (because ((+ ((v R4) (potential n2)) (potential n1)) (sum (v R4) (potential n2) (potential n1)) R4)
+          ((+ ((v R3) (potential n3)) (potential n1)) (sum (v R3) (potential n3) (potential n1)) R3)
+          (solver)
+          ((* ((current t1 VS) (v VS)) (P VS)) (product (current t1 VS) (v VS) (P VS)) VS))
+ (depends-on (gjs6) (gjs3) (gjs5) (gjs7) (gjs4) (gjs8) (gjs9) (gjs2)))
+
+;;; This is wrong.  Should not be able to conclude that the potential
+;;; at n3=0.  All potentials should be unknown without a value for V.
+
+;;; Interesting... This problem goes away if I comment out (product i1
+;;; v P) in 2-terminal device!  Probably should make this directional.
+
+
+
+(cpp (explain V))
+#;
+(((V) (has-value 0)
+      (because ((identity ((v VS)) (V)) (same (V) (v VS)) VS))
+      (depends-on (gjs4) (gjs3) (gjs5) (gjs9) (gjs2) (gjs8) (gjs7) (gjs6)))
+
+ ((v VS)
+  (has-value 0)
+  (because
+   ((- ((potential n0) (potential gnd)) (v VS)) (sum (v VS) (potential gnd) (potential n0)) VS))
+  (depends-on (gjs4) (gjs3) (gjs5) (gjs9) (gjs2) (gjs8) (gjs7) (gjs6)))
+
+ ((potential n0)
+  (has-value 0)
+  (because
+   ((+ ((v R1) (potential n1)) (potential n0)) (sum (v R1) (potential n1) (potential n0)) R1))
+  (depends-on (gjs4) (gjs3) (gjs5) (gjs9) (gjs2) (gjs8) (gjs7) (gjs6)))
+
+ ((v R1) (has-value 0)
+         (because ((* ((rR1) (current t1 R1)) (v R1)) (product (rR1) (current t1 R1) (v R1)) R1))
+         (depends-on (gjs4) (gjs3) (gjs5) (gjs9) (gjs2) (gjs8) (gjs7) (gjs6)))
+
+ ((rR1) (has-value 1000) (because) (depends-on (gjs3)))
+
+ ((current t1 R1)
+  (has-value 0)
+  (because
+   ((- ((zero-i R1) (current t2 R1)) (current t1 R1))
+    (sum (current t1 R1) (current t2 R1) (zero-i R1))
+    R1))
+  (depends-on (gjs4) (gjs3) (gjs5) (gjs9) (gjs2) (gjs8) (gjs7) (gjs6)))
+
+ ((zero-i R1)				;Correct value and no premises, but bad reason
+  (has-value 0)
+  (because
+   ((+ ((current t1 R1) (current t2 R1)) (zero-i R1))
+    (sum (current t1 R1) (current t2 R1) (zero-i R1))
+    R1))
+  (depends-on))
+
+ ((current t2 R1)
+  (has-value 0)
+  (because
+   ((- ((ie_2 n1) (current t1 R2)) (current t2 R1))
+    (sum (current t1 R2) (current t2 R1) (ie_2 n1))
+    n1))
+  (depends-on (gjs4) (gjs3) (gjs5) (gjs9) (gjs2) (gjs8) (gjs7) (gjs6)))
+
+ ((ie_2 n1) (has-value 0)
+            (because ((- ((ie_4 n1) (ie_3 n1)) (ie_2 n1))
+		      (sum (ie_3 n1) (ie_2 n1) (ie_4 n1))
+		      n1))
+            (depends-on (gjs4) (gjs3) (gjs5) (gjs9) (gjs2) (gjs8) (gjs7) (gjs6)))
+
+ ((ie_4 n1)				;n1 is capped here.
+  (has-value 0)				;Correct value and no premises, but bad reason.
+  (because ((+ ((ie_3 n1) (ie_2 n1)) (ie_4 n1))
+	    (sum (ie_3 n1) (ie_2 n1) (ie_4 n1))
+	    n1))
+  (depends-on))
+
+ ((ie_3 n1)
+  (has-value 0)
+  (because
+   ((+ ((current t1 R4) (current t1 R3)) (ie_3 n1))
+    (sum (current t1 R4) (current t1 R3) (ie_3 n1))
+    n1))
+  (depends-on (gjs4) (gjs3) (gjs5) (gjs9) (gjs2) (gjs8) (gjs7) (gjs6)))
+
+;;; *** Got to here; I don't like constant propagators!  Not clear that they actually work.
+
+ ((potential n1)
+  (has-value 0)
+  (because
+   ((+ ((v R4) (potential n2)) (potential n1))
+    (sum (v R4) (potential n2) (potential n1))
+    R4))
+  (depends-on (gjs4) (gjs3) (gjs5) (gjs9) (gjs2) (gjs8) (gjs7) (gjs6)))
+
+ ((potential n2)
+  (has-value 0)
+  (because
+   ((* ((current t1 VS) (v VS)) (P VS))
+    (product (current t1 VS) (v VS) (P VS))
+    VS)
+   (solver)
+   ((+ ((v R3) (potential n3)) (potential n1))
+    (sum (v R3) (potential n3) (potential n1))
+    R3)
+   ((+ ((v R4) (potential n2)) (potential n1))
+    (sum (v R4) (potential n2) (potential n1))
+    R4))
+  (depends-on (gjs4) (gjs3) (gjs5) (gjs9) (gjs2) (gjs8) (gjs7) (gjs6)))
+ 
+ solver					;Why is this here?
+
+ ((v R4) (has-value 0)
+         (because ((* ((rR4) (current t1 R4)) (v R4)) (product (rR4) (current t1 R4) (v R4)) R4))
+         (depends-on (gjs4) (gjs3) (gjs5) (gjs9) (gjs2) (gjs8) (gjs7) (gjs6)))
+
+ ((rR4) (has-value 1000) (because) (depends-on (gjs6)))
+
+ ((current t1 R4)
+  (has-value 0)
+  (because
+   ((- ((zero-i R4) (current t2 R4)) (current t1 R4))
+    (sum (current t1 R4) (current t2 R4) (zero-i R4))
+    R4))
+  (depends-on (gjs4) (gjs3) (gjs5) (gjs9) (gjs2) (gjs8) (gjs7) (gjs6)))
+
+ ((zero-i R4)
+  (has-value 0)
+  (because
+   ((+ ((current t1 R4) (current t2 R4)) (zero-i R4))
+    (sum (current t1 R4) (current t2 R4) (zero-i R4))
+    R4))
+  (depends-on))
+
+ ((current t2 R4)
+  (has-value 0)
+  (because
+   ((- ((ie_5 n2) (current t1 R5)) (current t2 R4))
+    (sum (current t1 R5) (current t2 R4) (ie_5 n2))
+    n2))
+  (depends-on (gjs4) (gjs3) (gjs5) (gjs9) (gjs2) (gjs8) (gjs7) (gjs6)))
+
+ ((ie_5 n2)
+  (has-value 0)
+  (because ((- ((io_1 n2) (current t1 R6)) (ie_5 n2)) (sum (ie_5 n2) (current t1 R6) (io_1 n2)) n2))
+  (depends-on (gjs4) (gjs3) (gjs5) (gjs9) (gjs2) (gjs8) (gjs7) (gjs6)))
+
+ ((io_1 n2)
+  (has-value 0)
+  (because ((+ ((ie_5 n2) (current t1 R6)) (io_1 n2)) (sum (ie_5 n2) (current t1 R6) (io_1 n2)) n2))
+  (depends-on))
+
+ ((current t1 R5)
+  (has-value 0)
+  (because ((/ ((v R5) (rR5)) (current t1 R5)) (product (rR5) (current t1 R5) (v R5)) R5))
+  (depends-on (gjs4) (gjs3) (gjs5) (gjs9) (gjs2) (gjs8) (gjs7) (gjs6)))
+
+ ((v R5)
+  (has-value 0)
+  (because
+   ((- ((potential n2) (potential n3)) (v R5)) (sum (v R5) (potential n3) (potential n2)) R5))
+  (depends-on (gjs4) (gjs3) (gjs5) (gjs9) (gjs2) (gjs8) (gjs7) (gjs6)))
+
+ ((potential n3)
+  (has-value 0)
+  (because ((+ ((v R4) (potential n2)) (potential n1)) (sum (v R4) (potential n2) (potential n1)) R4)
+           ((+ ((v R3) (potential n3)) (potential n1)) (sum (v R3) (potential n3) (potential n1)) R3)
+           (solver)
+           ((* ((current t1 VS) (v VS)) (P VS)) (product (current t1 VS) (v VS) (P VS)) VS))
+  (depends-on (gjs6) (gjs3) (gjs5) (gjs7) (gjs4) (gjs8) (gjs9) (gjs2)))
+
+ ((v R3) (has-value 0)
+         (because ((* ((rR3) (current t1 R3)) (v R3)) (product (rR3) (current t1 R3) (v R3)) R3))
+         (depends-on (gjs6) (gjs3) (gjs5) (gjs7) (gjs4) (gjs8) (gjs9) (gjs2)))
+
+ ((rR3) (has-value 2000) (because) (depends-on (gjs5)))
+
+ ((current t1 R3)
+  (has-value 0)
+  (because
+   ((- ((zero-i R3) (current t2 R3)) (current t1 R3))
+    (sum (current t1 R3) (current t2 R3) (zero-i R3))
+    R3))
+  (depends-on (gjs6) (gjs3) (gjs5) (gjs7) (gjs4) (gjs8) (gjs9) (gjs2)))
+
+ ((zero-i R3)
+  (has-value 0)
+  (because
+   ((+ ((current t1 R3) (current t2 R3)) (zero-i R3))
+    (sum (current t1 R3) (current t2 R3) (zero-i R3))
+    R3))
+  (depends-on))
+
+ ((current t2 R3)
+  (has-value 0)
+  (because
+   ((- ((ie_6 n3) (current t2 R5)) (current t2 R3))
+    (sum (current t2 R5) (current t2 R3) (ie_6 n3))
+    n3))
+  (depends-on (gjs6) (gjs3) (gjs5) (gjs7) (gjs4) (gjs8) (gjs9) (gjs2)))
+
+ ((ie_6 n3)
+  (has-value 0)
+  (because ((- ((io_2 n3) (current t1 R7)) (ie_6 n3)) (sum (ie_6 n3) (current t1 R7) (io_2 n3)) n3))
+  (depends-on (gjs6) (gjs3) (gjs5) (gjs7) (gjs4) (gjs8) (gjs9) (gjs2)))
+ 
+ ((io_2 n3)
+  (has-value 0)
+  (because ((+ ((ie_6 n3) (current t1 R7)) (io_2 n3)) (sum (ie_6 n3) (current t1 R7) (io_2 n3)) n3))
+  (depends-on))
+ 
+ ((current t2 R5)
+  (has-value 0)
+  (because
+   ((- ((zero-i R5) (current t1 R5)) (current t2 R5))
+    (sum (current t1 R5) (current t2 R5) (zero-i R5))
+    R5))
+  (depends-on (gjs4) (gjs3) (gjs5) (gjs9) (gjs2) (gjs8) (gjs7) (gjs6)))
+
+ ((zero-i R5)
+  (has-value 0)
+  (because
+   ((+ ((current t1 R5) (current t2 R5)) (zero-i R5))
+    (sum (current t1 R5) (current t2 R5) (zero-i R5))
+    R5))
+  (depends-on))
+
+ solver
+
+ ((current t1 VS)
+  (has-value 0)
+  (because
+   ((- ((zero-i VS) (current t2 VS)) (current t1 VS))
+    (sum (current t1 VS) (current t2 VS) (zero-i VS))
+    VS))
+  (depends-on (gjs6) (gjs3) (gjs5) (gjs7) (gjs4) (gjs8) (gjs9) (gjs2)))
+ 
+ ((zero-i VS)
+  (has-value 0)
+  (because
+   ((+ ((current t1 VS) (current t2 VS)) (zero-i VS))
+    (sum (current t1 VS) (current t2 VS) (zero-i VS))
+    VS))
+  (depends-on))
+
+ ((current t2 VS)
+  (has-value 0)
+  (because
+   ((- ((ie_7 gnd) (current t2 R2)) (current t2 VS))
+    (sum (current t2 R2) (current t2 VS) (ie_7 gnd))
+    gnd))
+  (depends-on (gjs6) (gjs3) (gjs5) (gjs7) (gjs4) (gjs8) (gjs9) (gjs2)))
+ 
+ ((ie_7 gnd)
+  (has-value 0)
+  (because ((- ((ie_9 gnd) (ie_8 gnd)) (ie_7 gnd)) (sum (ie_8 gnd) (ie_7 gnd) (ie_9 gnd)) gnd))
+  (depends-on (gjs6) (gjs3) (gjs5) (gjs7) (gjs4) (gjs8) (gjs9) (gjs2)))
+ 
+ ((ie_9 gnd)
+  (has-value 0)
+  (because ((+ ((ie_8 gnd) (ie_7 gnd)) (ie_9 gnd)) (sum (ie_8 gnd) (ie_7 gnd) (ie_9 gnd)) gnd))
+  (depends-on))
+ 
+ ((ie_8 gnd)
+  (has-value 0)
+  (because
+   ((+ ((current t2 R7) (current t2 R6)) (ie_8 gnd)) (sum (current t2 R7) (current t2 R6) (ie_8 gnd))
+                                                     gnd))
+  (depends-on (gjs6) (gjs3) (gjs5) (gjs7) (gjs4) (gjs8) (gjs9) (gjs2)))
+ 
+ ((current t2 R7)
+  (has-value 0)
+  (because
+   ((- ((zero-i R7) (current t1 R7)) (current t2 R7))
+    (sum (current t1 R7) (current t2 R7) (zero-i R7))
+    R7))
+  (depends-on (gjs6) (gjs3) (gjs5) (gjs7) (gjs4) (gjs8) (gjs9) (gjs2)))
+ 
+ ((zero-i R7)
+  (has-value 0)
+  (because
+   ((+ ((current t1 R7) (current t2 R7)) (zero-i R7))
+    (sum (current t1 R7) (current t2 R7) (zero-i R7))
+    R7))
+  (depends-on))
+ 
+ ((current t1 R7)
+  (has-value 0)
+  (because ((/ ((v R7) (rR7)) (current t1 R7)) (product (rR7) (current t1 R7) (v R7)) R7))
+  (depends-on (gjs6) (gjs3) (gjs5) (gjs7) (gjs4) (gjs8) (gjs9) (gjs2)))
+ 
+ ((v R7)
+  (has-value 0)
+  (because
+   ((- ((potential n3) (potential gnd)) (v R7)) (sum (v R7) (potential gnd) (potential n3)) R7))
+  (depends-on (gjs6) (gjs3) (gjs5) (gjs7) (gjs4) (gjs8) (gjs9) (gjs2)))
+ 
+ ((rR7) (has-value 1000) (because) (depends-on (gjs9)))
+ 
+ ((current t2 R6)
+  (has-value 0)
+  (because
+   ((- ((zero-i R6) (current t1 R6)) (current t2 R6))
+    (sum (current t1 R6) (current t2 R6) (zero-i R6))
+    R6))
+  (depends-on (gjs4) (gjs3) (gjs5) (gjs9) (gjs2) (gjs8) (gjs7) (gjs6)))
+ 
+ ((zero-i R6)
+  (has-value 0)
+  (because
+   ((+ ((current t1 R6) (current t2 R6)) (zero-i R6))
+    (sum (current t1 R6) (current t2 R6) (zero-i R6))
+    R6))
+  (depends-on))
+ 
+ ((current t1 R6)
+  (has-value 0)
+  (because ((/ ((v R6) (rR6)) (current t1 R6)) (product (rR6) (current t1 R6) (v R6)) R6))
+  (depends-on (gjs4) (gjs3) (gjs5) (gjs9) (gjs2) (gjs8) (gjs7) (gjs6)))
+ 
+ ((v R6)
+  (has-value 0)
+  (because
+   ((- ((potential n2) (potential gnd)) (v R6)) (sum (v R6) (potential gnd) (potential n2)) R6))
+  (depends-on (gjs4) (gjs3) (gjs5) (gjs9) (gjs2) (gjs8) (gjs7) (gjs6)))
+ 
+ ((rR6) (has-value 1000) (because) (depends-on (gjs8)))
+ 
+ ((current t2 R2)
+  (has-value 0)
+  (because
+   ((- ((zero-i R2) (current t1 R2)) (current t2 R2))
+    (sum (current t1 R2) (current t2 R2) (zero-i R2))
+    R2))
+  (depends-on (gjs4) (gjs3) (gjs5) (gjs9) (gjs2) (gjs8) (gjs7) (gjs6)))
+ 
+ ((zero-i R2)
+  (has-value 0)
+  (because
+   ((+ ((current t1 R2) (current t2 R2)) (zero-i R2))
+    (sum (current t1 R2) (current t2 R2) (zero-i R2))
+    R2))
+  (depends-on))
+ 
+ ((current t1 R2)
+  (has-value 0)
+  (because ((/ ((v R2) (rR2)) (current t1 R2)) (product (rR2) (current t1 R2) (v R2)) R2))
+  (depends-on (gjs4) (gjs3) (gjs5) (gjs9) (gjs2) (gjs8) (gjs7) (gjs6)))
+ 
+ ((v R2)
+  (has-value 0)
+  (because
+   ((- ((potential n1) (potential gnd)) (v R2)) (sum (v R2) (potential gnd) (potential n1)) R2))
+  (depends-on (gjs4) (gjs3) (gjs5) (gjs9) (gjs2) (gjs8) (gjs7) (gjs6)))
+ 
+ ((rR2) (has-value 1000) (because) (depends-on (gjs4)))
+ 
+ ((rR5) (has-value 1000) (because) (depends-on (gjs7)))
+ 
+ ((potential gnd) (has-value 0) (because) (depends-on (gjs2))))
+
+
+|#

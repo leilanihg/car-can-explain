@@ -1,0 +1,38 @@
+(define (bjt-active-beta-model VBEthreshold VCEsaturation beta
+                               #!optional given-name)
+  (3-terminal-device '(bjt-active-beta-model b c e) given-name
+    (lambda (VBE IB VCE IC)
+      (let-cells (type                ;+ for NPN, - for PNP
+                  VBEsign VCEsign IBsign ICsign
+                  absVBEthreshold absVCEsaturation
+		  absVBE absVCE absIC
+                  cutoff saturated inactive active
+                  (zeroI 0)
+                  (false #f))
+
+        (sign VBEthreshold type)
+
+        (same VBEsign type)
+        (sign VBE VBEsign)
+
+        (same VCEsign type)
+        (sign VCE VCEsign)
+
+        (same IBsign type)
+        (sign IB IBsign)
+
+        (same ICsign type)
+        (sign IC ICsign)
+
+        (absolute-value VBEthreshold absVBEthreshold)
+        (absolute-value VBE absVBE)
+
+        (absolute-value VCEsaturation absVCEsaturation)
+
+        ;; Active transistor
+        (<=? absVCE absVCEsaturation false)    ;Not saturated
+        (same VBE VBEthreshold)                ;Not cutoff
+        (product beta IB IC)
+	
+	))
+    VBEthreshold VCEsaturation beta))

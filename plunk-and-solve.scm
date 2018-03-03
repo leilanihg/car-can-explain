@@ -1,6 +1,6 @@
-;;; ----------------------------------------------------------------------
+;;; ------------------------------------------------------------------
 ;;; Copyright 2016 Alexey Radul and Gerald Jay Sussman
-;;; ----------------------------------------------------------------------
+;;; ------------------------------------------------------------------
 ;;; This file is part of New Propagator Prototype.  It is derived from
 ;;; the Artistic Propagator Prototype previously developed by Alexey
 ;;; Radul and Gerald Jay Sussman.
@@ -18,199 +18,361 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with New Artistic Propagator Prototype.  If not, see
 ;;; <http://www.gnu.org/licenses/>.
-;;; ----------------------------------------------------------------------
+;;; ------------------------------------------------------------------
+
+;;; Wallpaper
+
+(define *debugging-equate* #f)
+
+(define *debugging-general-solve* #f)
+
+
+;;; The substitutions accumulated by solving equations are collected
+;;; here.  This is initialized by the scheduler.
+
+(define *substitutions* '())
 
-(define (plunk! cell #!optional var)
+;;; Every access of a symbolic value must go through this:
+
+(define (current-best-value symb-v&s)
+  (let* ((symb-v&s (->v&s symb-v&s))  
+         (expression (v&s-value symb-v&s))
+         (premises (v&s-support symb-v&s))
+         (reasons (v&s-reasons symb-v&s)))
+    (let ((expr 
+           (fold-left (lambda (expr sub)
+                         (s:simplify
+                          (substitute (substitution-expression sub)
+                                      (substitution-variable sub)
+                                      expr)))
+                       expression
+                       *substitutions*))
+          (s&rs
+           (map (lambda (sub)
+                  (solver-justifications->s&r
+                   (substitution-justifications sub)))
+                *substitutions*)))
+      (let ((all-premises
+             (fold-left (lambda (supp sub-s&r)
+                           (lset-union equal? 
+                                       (argument-supports sub-s&r)
+                                       supp))
+                         premises
+                         s&rs))
+            (all-reasons
+             (fold-left (lambda (reas sub-s&r)
+                           (lset-union equal? 
+                                       (argument-reasons sub-s&r)
+                                       reas))
+                         reasons
+                         s&rs)))
+        (supported (maybe-symbolic-result expr)
+                   all-premises
+                   all-reasons)))))
+
+;;; A plunk will cause propagation of symbolic expressions.
+;;; Eventually these will collide in MERGE, causing EQUATE!  to be
+;;; invoked.
+
+(define (plunk! cell)
   (assert (cell? cell) "Can only plunk a cell.")
-  (if (default-object? var)
-      (set! var (make-plunk-variable)))
-  (assert (symbol? var) "Plunk var must be symbol")
-  (let ((premise (symbol "premise-" var)))
+  (let* ((var (make-plunk-variable (name cell)))
+	 (premise (symbol "premise-" var)))
     (eq-put! premise 'premise #t)
     (eq-put! var 'plunk-premise premise)
     (eq-put! premise 'plunk-var var)
     (eq-put! var 'plunk-cell cell)
     (add-content cell
-      (make-tms (supported var (list premise))))
+      (make-tms
+       (supported (literal-number var)
+		  (list premise)
+		  (list '(plunker)))))
+    (bring-in! premise)
     (run)))
 
-(define make-plunk-variable (make-new-symbols "plunk-"))
+(define (make-plunk-variable cell-name)
+  (set! *plunk-counter* (+ *plunk-counter* 1))
+  (string->symbol 
+   (string-append
+    (fold-left string-append
+               ""
+               (map symbol->string cell-name))
+    "_"
+    (number->string *plunk-counter*))))
 
-;;; A plunk will cause propagation of symbolic expressions.
-;;; Eventually these will collide in MERGE, causing EQUATE!  to be
-;;; invoked.  This does not create an equation, but it catches obvious
-;;; contradictions.
+(define *plunk-counter* 0)
 
-(define *numeric-merge-tolerance* 1e-15)
+(define (plunk-variable? sym)
+  (eq-get sym 'plunk-premise))
+
+(define *numeric-merge-tolerance* 1e-10)
 (define *symbolic-merge-tolerance* 1e-5)
-
-(define (equate! *lhs *rhs)
-  (let* ((lhs (g:simplify *lhs)) (rhs (g:simplify *rhs)))
-    (if *debugging-solve* (pp `(equate! ,lhs ,rhs)))
-    (cond ((equal? lhs rhs)
-	   (maybe-symbolic-result lhs))
-	  ((and (number? lhs) (number? rhs))
-	   (if (default-equal? lhs rhs *numeric-merge-tolerance*)
-	       lhs
-	       the-contradiction))
-	  (else
-	   (let ((diff (g:simplify (symb:- lhs rhs))))
-	     (if (and (number? diff)
-		      (default-equal? diff 0
-				      *symbolic-merge-tolerance*))
-		 (maybe-symbolic-result
-		  (choose-simpler-expression lhs rhs))
-		 (let ((vars (plunk-variables diff)))
-		   (if (null? vars)
-		       the-contradiction
-		       (maybe-symbolic-result
-			(choose-simpler-expression lhs rhs))))))))))
-	      
-(assign-operation 'merge equate! abstract-number? abstract-number?)
-(assign-operation 'merge equate! number? abstract-number?)
-(assign-operation 'merge equate! abstract-number? number?)
 
-(define *equation-residual-tolerance* 1e-7)
-
-(define (maybe-post-equation! v&s-content v&s-answer)
-  (let ((*lhs (v&s-value v&s-content))
-        (*rhs (v&s-value v&s-answer)))
-    (if (or (and (abstract-number? *lhs) (numeric? *rhs))
-            (and (abstract-number? *rhs) (numeric? *lhs)))
-        (let* ((lhs (g:simplify *lhs))
-               (rhs (g:simplify *rhs))
-               (diff (g:simplify (symb:- lhs rhs)))
-               (residual (if (quotient? diff)
-                             (symb:numerator diff)
-                             diff)))
-          (if *debugging-solve*
-              (pp `(maybe-posting ,residual)))
-          (if (and (number? residual)
-                   (default-equal? residual 0
-				   *equation-residual-tolerance*))
-              'nothing-to-do
-              (let ((unknowns (plunk-variables residual)))
-                (if (null? unknowns)
-                    the-contradiction
-                    (accumulate-equation residual
-                                         (merge-supports v&s-content
-                                                         v&s-answer)
-                                         (merge-reasons  v&s-content
-                                                         v&s-answer)
-                                         unknowns)))))
-	'nothing-to-do)))
-
-(define (accumulate-equation residual supports reasons unknowns)
-  (if *debugging-solve*
-      (pp `(posting ,residual)))
-  (let ((equation-with-same-residual
-         (find (lambda (e)
-                 (trivially-equivalent? (equation-expression e)
-                                        residual))
-               *posted-equations*)))
-    (if equation-with-same-residual     ;seen before
-        (if (lset< eq?                  
-                   supports             ;more informative
-                   (caaadr equation-with-same-residual))
-            (set-car! (cadr equation-with-same-residual)
-                      (list supports reasons))
-            'nothing-to-do)
-        (set! *posted-equations*
-              (cons (list residual
-                          (list (list supports reasons))
-                          unknowns)
-                    *posted-equations*)))))
+(define (equate-v&s! v&s1 v&s2)
+  (cond ((not (all-premises-in? (v&s-support v&s2)))
+         v&s1)
+        ((not (all-premises-in? (v&s-support v&s1)))
+         v&s2)
+        (else
+         (if *debugging-equate* (pp `(equate! ,v&s1 ,v&s2)))
+         (let* ((v&s1 (current-best-value v&s1))
+                (v&s2 (current-best-value v&s2))
+                (supports (merge-supports v&s1 v&s2))
+                (reasons (merge-reasons v&s1 v&s2))
+                (lhs (v&s-value v&s1))
+                (rhs (v&s-value v&s2)))
+           (define (make-result expr)
+             (supported expr supports reasons))
+           (cond ((equal? lhs rhs) v&s1)
+                 ((and (number? lhs) (number? rhs))
+                  (if (default-equal? lhs rhs *numeric-merge-tolerance*)
+                      v&s1
+                      (make-result the-contradiction)))
+                 (else
+                  (let ((residual (g:simplify (symb:- lhs rhs)))
+                        (default-result
+                          (maybe-symbolic-result
+                           (choose-simpler-expression lhs rhs))))
+                    (if (and (number? residual)
+                             (default-equal? residual 0
+                               *symbolic-merge-tolerance*))
+                        (make-result default-result)
+                        (let ((vars (plunk-variables residual)))
+                          (if (null? vars)
+                              (make-result the-contradiction)
+                              (general-solve
+                               (list ; Note: this is one equation only!
+                                ;; Probably should add this new equation
+                                ;; to previously unsolved stuff, if any.
+                                (make-equation residual 
+                                 (list  ;Solver equation has list of justs.
+                                  (s&r->solver-justification supports 
+                                                             reasons))))
+                               vars          ;unknowns
+                               (use-solutions supports
+                                              reasons
+                                              default-result)
+                               (lambda ()
+                                 (make-result the-contradiction))
+                               (lambda ()
+                                 (make-result default-result)))))))))))))
 
-(define (equation-difficulty equation)
-  (apply +
-         (map (max-exponent (equation-expression equation))
-              (equation-variables equation))))
+(define (abstract-v&s? x)
+  (and (v&s? x)
+       (abstract-number? (v&s-value x))))
 
-(define (maybe-solve-equations!)
-  (set! *posted-equations*
-        (sort *posted-equations*
-              (lambda (eqn1 eqn2)
-                (< (equation-difficulty eqn1)
-                   (equation-difficulty eqn2)))))
-  (let ((eqns *posted-equations*)
-        (unknowns
-         (apply lset-union equal?
-                (map equation-variables *posted-equations*))))
-    (if (>= (length eqns) (length unknowns))
-        (general-solve eqns unknowns
-		       (use-solutions eqns unknowns)
-		       (lambda ()
-			 the-contradiction))
-        'not-enough-equations)))
+(assign-operation 'merge equate-v&s! abstract-v&s? abstract-v&s?)
 
-;;; The general case for many equations and unknowns
+(assign-operation 'merge equate-v&s! abstract-v&s? flat-v&s?)
+(assign-operation 'merge equate-v&s! flat-v&s? abstract-v&s?)
 
-(define (general-solve-symbolic eqns unknowns succeed fail)
-  (if *debugging-solve* (pp `(solving ,eqns ,unknowns)))
-  (let ((solution (solve-incremental eqns unknowns)))
-    (if (null? (filter contradictory-equation?
-                       (residual-equations solution)))
-        (let ((subs (substitutions solution)))
-          (succeed (map substitution-variable subs)
-                   (map substitution-expression subs)
-                   (map substitution-justifications subs)
-                   (residual-equations solution)))
-        (fail))))
 
-(define *debugging-solve* #f)
+(define (equate-number-v&s x v&s)
+  (equate-v&s! (->v&s x) v&s))
 
-(define general-solve general-solve-symbolic)
+(assign-operation 'merge equate-number-v&s number? abstract-v&s?)
+
+
+(define (equate-v&s-number v&s x)
+  (equate-v&s! v&s (->v&s x)))
+
+(assign-operation 'merge equate-v&s-number abstract-v&s? number?)
+
+
+(define (abstract-tms? x)
+  (and (tms? x)
+       (abstract-v&s? (strongest-consequence x))))
+
+(define (equate-tms-tms tms1 tms2) 
+  (merge (tms-query tms1) (tms-query tms2)))
+
+(define (equate-tms-v&s tms v&s)
+  (merge (tms-query tms) v&s))
+
+(define (equate-v&s-tms v&s tms)
+  (merge v&s (tms-query tms)))
+
+(assign-operation 'merge equate-tms-tms abstract-tms? abstract-tms?)
+(assign-operation 'merge equate-tms-v&s abstract-tms? flat-v&s?)
+(assign-operation 'merge equate-v&s-tms flat-v&s? abstract-tms?)
 
-(define (use-solutions equations unknowns)
-  (define (gobble vars values justifications residuals)
-    ;;(set! *posted-equations* residuals)
-    (let ((voids '()) (knowns '()) (results '()) (justs '()))
-      (for-each
-       (lambda (var val just)
-         (let ((unsolved (plunk-variables val)))
-           (if (not (null? unsolved))
-               (for-each                ;unfinished work
-                (lambda (eqn)
-                  (set! equations (delq eqn equations))
-                  (set! *posted-equations*
-                        (cons eqn *posted-equations*)))
-                (filter
-                 (lambda (eqn)
-                   (not (null?
-                         (lset-intersection eq?
-                           unsolved
-                           (equation-variables eqn)))))
-                 residuals))
-               (begin                   ;solved vars
-                 (set! voids
-                       (cons (eq-get var 'plunk-premise)
-                             voids))
-                 (set! knowns (cons var knowns))
-                 (set! results (cons val results))
-                 (set! justs (cons just justs))))))
-       vars values justifications)
-      (for-each
-       (lambda (var val just)
-         (let ((premises
-                (lset-difference eq?
-                  (apply lset-union eq? (map car just))
-                  voids))
-               (reasons
-                (lset-adjoin eq?
-                  (apply lset-union eq? (map cadr just))
-                  'solver)))
-           (if *debugging-solve* (pp `(solved ,var = ,val)))
-           (add-content (eq-get var 'plunk-cell)
-             (make-tms
-              (supported (maybe-symbolic-result val)
-                         premises
-                         reasons)))))
-       knowns results justs)
-      (for-each kick-out! voids)
-      (if *debugging-solve*
-          (pp `(new-posts ,*posted-equations*)))))
-  gobble)
+;;; Equations to be solved by the Scmutils solver must have an
+;;; expression, a list of justifications (symbols used for tracking
+;;; which equations contributed to each substitution), and variables.
+
+;;; Propagator v&s values have two components to a justification: the
+;;; set of premises that support the expression and a reason, which
+;;; gives the immediate propagator that produced the expression.
+
+;;; So to make this work we must prepare equations for the solver by
+;;; making up solver justifications that pack up propagator
+;;; justifications.
+
+(define (s&r->solver-justification supports reasons)
+  (let ((supports (sort supports expr:<)) ;canonicalize order
+        (reasons (sort reasons expr:<)))
+    (let ((key (list supports reasons)))
+      (let ((seen (assoc key *justification-memory*)))
+        (if seen
+            (cdr seen) 
+            (let ((j (generate-uninterned-symbol "J")))
+              (set! *justification-memory*
+                    (cons (cons key j) *justification-memory*))
+               j))))))
+                        
+;;; We also need to be able to unpack solver justifications into
+;;; propagator justifications.
+;;; (define rassoc (association-procedure equal? cdr))
+
+;;; Given a list of solver justifications (and other premises) we need
+;;; to produce the supports and reasons needed by the propagator
+;;; system.
+
+(define (solver-justifications->s&r js)
+  (let lp ((js js) (supports '()) (reasons '()))
+    (if (null? js)
+        (list supports reasons)
+        (let ((seen (rassoc (car js) *justification-memory*)))
+          (if seen
+              (lp (cdr js) 
+                  (lset-union equal? (caar seen) supports)
+                  (lset-union equal? (cadar seen) reasons))
+              (lp (cdr js)
+                  (lset-adjoin equal? supports (car js))
+                  reasons))))))
+
+(define (argument-supports argument) (car argument))
+
+(define (argument-reasons argument) (cadr argument))
 
+(define (general-solve eqns unknowns
+                       succeed
+                       contradiction-failure
+                       inadequate-solver-failure)
+  (if *debugging-general-solve* (pp `(solving ,eqns ,unknowns)))
+  (let ((solve-result (solve-equations eqns unknowns)))
+    (case (car solve-result)
+      ((full-solutions underdetermined) 
+       (if *debugging-general-solve* (pp `(solved ,solve-result)))
+       ;; ASSUMPTION: there is a value to be returned that is a
+       ;; value of the cell whose merge discovered the equation.
+       ;; All of these should be returned to the cell and merged.
+       (if (null? (cdr solve-result)) (error "Huh?"))
+       (let lp ((more (cddr solve-result)) 
+                (value (succeed (substitutions (cadr solve-result)))))
+         (if (null? more)
+             (begin
+               (if *debugging-general-solve*
+                   (pp `(value-returned ,value)))
+               value)
+             (lp (cdr more)
+                 (merge (succeed (substitutions (car more)))
+                        value)))))
+      ((contradictions)
+       (if *debugging-general-solve* (pp 'contradiction-1))
+       (contradiction-failure))
+      ((parameters-constrained tough-equations extra-equations)
+       ;; Some equations should be added to "unsolved" for later,
+       ;; see equate-v&s! above.
+       (if *debugging-general-solve* (pp solve-result))
+       (inadequate-solver-failure))
+      (else (error "Unknown result" solve-result)))))
+
+
+(define ((use-solutions premises reasons default-result) substitutions)
+  (if *debugging-general-solve* (pp `(using ,substitutions)))
+  (let* ((now-known-vars
+          (map substitution-variable substitutions))
+         (their-values
+          (map substitution-expression substitutions))
+         (their-justifications
+          (map (compose solver-justifications->s&r
+                        substitution-justifications)
+               substitutions))
+         (premises-to-be-retracted
+          (append-map
+           (lambda (var val) 
+             (if (null? (plunk-variables val))
+                 (list (eq-get var 'plunk-premise))
+                 '()))
+           now-known-vars their-values))
+         (new-substitutions 
+          (map
+           (lambda (var val justs)
+             (let* ((premises
+                     (lset-difference equal?
+                                      (argument-supports justs)
+                                      premises-to-be-retracted))
+                    (reasons
+                     (lset-adjoin equal?
+                                  (argument-reasons justs)
+                                  '(solver))))
+               (if *debugging-general-solve*
+                   (pp `(plunk-resolved ,var = ,val)))
+               (alert-propagators       ;delayed add-content.
+                (lambda ()
+                  (let ((new-val
+                         (supported (maybe-symbolic-result val)
+                                    premises reasons)))
+                    (add-content (eq-get var 'plunk-cell)
+                                 new-val
+                                 (list 'solver)))))
+               (make-substitution var val 
+                 (list (s&r->solver-justification premises reasons)))))
+           now-known-vars their-values their-justifications))
+         ;; let* continued on next page.
+
+         ;; let* continued from previous page.
+         (updated-old-substitutions
+          (map
+           (lambda (old-substitution)
+             (fold-left
+              (lambda (old new)
+                (if (occurs? (substitution-variable new)
+                             (substitution-expression old))
+                    (make-substitution
+                     (substitution-variable old)
+                     (substitute (substitution-expression new)
+                                 (substitution-variable new)
+                                 (substitution-expression old))
+                     (just-union 
+                      (substitution-justifications new)
+                      (update-justifications premises-to-be-retracted
+                                             old)))
+                    (make-substitution
+                     (substitution-variable old)
+                     (substitution-expression old)
+                     (update-justifications premises-to-be-retracted
+                                            old))))
+              old-substitution
+              new-substitutions))
+           *substitutions*)))
+    (if *debugging-general-solve*
+        (pp `(entering-substitutions ,*substitutions*)))
+    (set! *substitutions* 
+          (lset-union equal?
+                      new-substitutions updated-old-substitutions))
+    (if *debugging-general-solve*
+        (pp `(exiting-substitutions ,*substitutions*)))
+    (if *debugging-general-solve*
+        (pp `(to-be-retracted ,premises-to-be-retracted)))
+    (for-each kick-out! premises-to-be-retracted)    
+    (current-best-value
+     (supported (maybe-symbolic-result default-result)
+                (lset-difference equal?
+                                 premises
+                                 premises-to-be-retracted)
+                reasons))))
+
+(define (update-justifications premises-to-be-retracted old)
+  (let ((justs (solver-justifications->s&r
+                (substitution-justifications old))))
+    (list (s&r->solver-justification
+           (lset-difference equal?
+                            (argument-supports justs)
+                            premises-to-be-retracted)
+           (argument-reasons justs)))))
+
 (define (choose-simpler-expression lhs rhs)
   (cond ((number? lhs) lhs)
         ((number? rhs) rhs)
@@ -237,21 +399,17 @@
 	   (apply max (map lp expr)))
 	  (else 0))))
 
-(define (plunk-variable? sym)
-  (eq-get sym 'plunk-premise))
-
 (define (plunk-variables expr)
   (cond ((pair? expr)
-         (lset-union eq?
+         (lset-union equal?
                      (plunk-variables (car expr))
                      (plunk-variables (cdr expr))))
         ((plunk-variable? expr)
          (list expr))
         (else '())))
 
-
 (define (maybe-symbolic-result expr)
-  (if (numeric? expr)
+  (if (or (numeric? expr) (literal-number? expr))
       expr
       (literal-number expr)))
 
@@ -282,7 +440,7 @@
     (let ((diff (g:simplify (symb:- nx ny))))
       (and (number? diff)
 	   (default-equal? diff 0
-			   *symbolic-equality-acceptance-tolerance*)))))
+	     *symbolic-equality-acceptance-tolerance*)))))
 
 (assign-operation 'generic-=
                   symbolic-equal?
@@ -303,105 +461,3 @@
 			    *equation-residual-tolerance*)
 	    (let ((quo (g:simplify (symb:/ nr1 nr2))))
 	      (number? quo))))))
-
-#|
-;;; Exact solution of 1 quasi-linear equation:
-
-(define (solve-one-var-algebraic eqn var succeed fail)
-  (isolatable? var eqn succeed fail))
-
-;;; Numerical methods are often better, because floating
-;;; point kills symbolic manipulation (polynomial gcd).
-
-(define (solve-one-var-bisection eqn var succeed fail)
-  (let ((f (lambda->numerical-procedure
-            `(lambda (,var) ,(equation-expression eqn)))))
-    (find-a-root f
-                 (- root-search-bounds)
-                 root-search-bounds
-                 root-search-interval
-                 bisection-search-tolerance
-                 succeed
-                 fail)))
-
-(define root-search-bounds 100.0)
-(define root-search-interval 0.1)
-(define root-search-tolerance 1e-15)
-
-;;; Set this to desired method
-(define solve-one-var solve-one-var-algebraic)
-;;; (define solve-one-var solve-one-var-bisection)
-;;; In any case, gobble up a solution using this method.
-
-(define (use-solution-1 argument var lhs rhs)
-  (let ((plunk-premise (eq-get var 'plunk-premise))
-        (cell (eq-get var 'plunk-cell)))
-    (let ((premises
-           (delq plunk-premise
-             (apply lset-union eq? (map car argument))))
-          (reasons
-           (lset-adjoin eq?
-             (apply lset-union eq? (map cadr argument))
-             'solver)))
-      (define (gobble value)
-        (let ((val (g:simplify value)))
-          `(,var = ,val)
-          (kick-out! plunk-premise)
-          (add-content cell
-                       (supported (maybe-symbolic-result val)
-				  premises reasons))
-          (maybe-symbolic-result
-           (choose-simpler-expression
-            (g:simplify (substitute val var lhs))
-            (g:simplify (substitute val var rhs))))))
-      gobble)))
-
-;;; Numerical solutions of many equations all depend 
-;;; on all of the equations, but symbolic solutions 
-;;; may be more discriminating as to dependencies.
-
-(define (general-solve-numerical eqns unknowns succeed fail
-             #!optional initial-point initial-step min-step
-             tolerance)
-  (let ((n (length unknowns))
-        (fail (lambda (dismiss) (fail))))
-    (assert (>= (length eqns) n) "not enuf equations")
-    (if (default-object? initial-point)
-        (set! initial-point (make-vector n 1.5)))
-    (if (default-object? initial-step)
-        (set! initial-step (make-vector n 0.1)))
-    (if (default-object? min-step)
-        (set! min-step (* 10 n *machine-epsilon*)))
-    (if (default-object? tolerance)
-        (set! tolerance (* 100 n *machine-epsilon*)))
-    (let* ((v (generate-uninterned-symbol 'v))
-           (f (lambda->numerical-procedure
-               `(lambda (,v)
-                  (let ,(map (lambda (unknown i)
-                               `(,unknown (vector-ref ,v ,i)))
-                             unknowns (iota (length unknowns)))
-                    (vector ,@(map equation-expression eqns)))))))
-      (multidimensional-root-internal f initial-point
-                                      initial-step min-step
-        (lambda (proposed-root)
-          (let* ((justification
-                  (map car (map equation-justifications eqns)))
-                 (justifications
-                  (map (lambda (unk) justification) unknowns)))
-            (let ((value (f proposed-root)))
-              (if (< (maxnorm value) tolerance)
-                  (succeed unknowns
-                           (vector->list proposed-root)
-                           justifications
-                           '())
-                  (fail)))))            ;contradiction failure?
-        fail))))                        ;underdetermined failure?
-                                        ; Cannot distinguish!
-
-;;; (define general-solve general-solve-numerical)
-|#
-
-
-
-
-

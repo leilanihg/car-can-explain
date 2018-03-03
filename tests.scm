@@ -127,33 +127,13 @@
 
 (cpp (inquire c))
 #;
-((c) (has-value #(interval 4. 5.))
-     (because ((+ ((a) (b)) (c))
-	       (sum (a) (b) (c)))
-	      ((* ((d) (e)) (c))
-	       (product (d) (e) (c))))
-     (depends-on (gjs4) (gjs2) (gjs1) (gjs3)))
+((c) (has-value (interval 3 5))
+     (because ((+ ((a) (b)) (c)) (sum (a) (b) (c))))
+     (depends-on (gjs2) (gjs1)))
 
-(cpp (explain c))
-#;
-(((c) (has-value (interval 4. 5.))
-      (because ((+ ((a) (b)) (c)) (sum (a) (b) (c)))
-	       ((* ((d) (e)) (c)) (product (d) (e) (c))))
-      (depends-on (gjs4) (gjs2) (gjs1) (gjs3)))
- ((a) (has-value (interval 1 2)) (because ()) (depends-on (gjs1)))
- ((b) (has-value (interval 2 3)) (because ()) (depends-on (gjs2)))
- ((e) (has-value (interval 2. 2.5))
-      (because ((/ ((c) (d)) (e)) (product (d) (e) (c))) ())
-      (depends-on (gjs1) (gjs2) (gjs3) (gjs4)))
- ((d) (has-value (interval 2. 2.5))
-      (because () ((/ ((c) (e)) (d)) (product (d) (e) (c))))
-      (depends-on (gjs4) (gjs2) (gjs1) (gjs3))))
-
-;;; Note: b,e,d have changed to make system consistent.  Cell a is
-;;; unchanged.  Probably should be able to tie some stuff down!
-
-(cpp (explain b))
-#;
-(((b) (has-value (interval 2 3)) (because ()) (depends-on (gjs2))))
+;;; No change, because the merge in cell e of (2,5) and (1,2.5) did
+;;; not improve the bounds on the value in e, even though this could
+;;; have improved the bounds on the value in c!
 
 
+     
