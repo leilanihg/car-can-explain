@@ -115,25 +115,11 @@
         nothing
         (apply f args))))
 
-(define (apply-comparator f)
-  (lambda (output . args)
-    (if (any (lambda (x)
-               (or (nothingness? x)
-                   (contradictory? x)
-                   (abstract? x)))
-             args)
-        nothing
-        (apply f args))))
-
-(define *apply-f-multiply/divide-zero-tolerance* 1e-20)
-
 (define (gzero? x)
   (let ((v (generic-extract-value x)))
     (if (nothingness? v)
         #f
-        (fluid-let ((*equality-tolerance*
-                     *apply-f-multiply/divide-zero-tolerance*))
-          (generic-zero? v)))))
+        (generic-zero? v))))
 
 (define (apply-f-multiply f)
   (lambda (result . args)

@@ -64,10 +64,10 @@
 
 (define *universal-ancestor*)
 (define *my-parent*)
+(define *posted-equations*)
 (define *substitutions*)
 (define *premise-outness*)
 (define *plunk-counter*)
-(define *justification-memory*)
 
 (define (initialize-scheduler)
   (clear-alerted-propagators!)
@@ -79,8 +79,8 @@
 	(list '*propagators-ever-alerted-list*))
   (set! *universal-ancestor* (list '*universal-ancestor*))
   (set! *my-parent* *universal-ancestor*)
+  (set! *posted-equations* '())
   (set! *substitutions* '())
-  (set! *justification-memory* '())
   (set! *number-of-calls-to-fail* 0)
   (set! *plunk-counter* 0)
   'ok)

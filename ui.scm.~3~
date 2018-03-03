@@ -76,7 +76,7 @@
   (show-value cell (tms-query (->tms (content cell)))))
 
 (define (show-value cell v&s)
-  (if (nothingness? v&s)
+  (if (nothing? v&s)
       `(,(nickname cell) (has-value ,v&s))
       `(,(nickname cell)
         (has-value ,(g:simplify (v&s-value v&s)))
@@ -108,3 +108,6 @@
                      (v&s-reasons val))))
             '())))
     (walk cell)))
+
+
+

@@ -76,16 +76,12 @@
   (show-value cell (tms-query (->tms (content cell)))))
 
 (define (show-value cell v&s)
-  (if (nothingness? v&s)
+  (if (nothing? v&s)
       `(,(nickname cell) (has-value ,v&s))
       `(,(nickname cell)
-        (has-value ,(g:simplify (v&s-value v&s)))
-        (because ,@(show-reasons (v&s-reasons v&s)))
+        (has-value ,(v&s-value v&s))
+        (because ,@(map name (v&s-reasons v&s)))
         (depends-on ,@(map nickname (v&s-support v&s))))))
-
-(define (show-reasons reasons)
-  (filter (lambda (x) (not (null? x)))
-	  (map name reasons)))
 
 (define (explain cell)
   (assert (cell? cell) "Can only explain a cell.")
@@ -98,13 +94,10 @@
               (cons (show-value cell val)
                     (append-map
                      (lambda (reason)
-		       (cond ((eq? reason *universal-ancestor*)
-			      '())
-			     ((propagator? reason)
-			      (append-map walk
-					  (propagator-inputs reason)))
-			     (else
-			      (list reason))))
+                       (if (eq? reason *universal-ancestor*)
+                           '()
+                           (append-map walk
+                                       (propagator-inputs reason))))
                      (v&s-reasons val))))
             '())))
     (walk cell)))

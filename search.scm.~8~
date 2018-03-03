@@ -19,18 +19,8 @@
 ;;; along with New Artistic Propagator Prototype.  If not, see
 ;;; <http://www.gnu.org/licenses/>.
 ;;; ----------------------------------------------------------------------
-
+
 (declare (usual-integrations))
-
-#|
-;;; Hypotheticals are a special kind of premise, see tms.scm
-;;; This structure is now defined in scmutils/src/solve/solve.scm
-(define-structure hypothetical name amb-cell)
-|#
-
-;;; However, we need to rename the extra slot:
-(define hypothetical-amb-cell hypothetical-extra)
-(define set-hypothetical-amb-cell! set-hypothetical-extra!)
 
 (define *premise-nogoods* (make-eq-hash-table))
 
@@ -39,10 +29,10 @@
 
 (define (set-premise-nogoods! premise nogoods)
   (hash-table/put! *premise-nogoods* premise nogoods))
-
+
 (define (binary-amb cell)
-  (let ((true-premise (make-hypothetical 'true cell))
-        (false-premise (make-hypothetical 'false cell)))
+  (let ((true-premise (make-hypothetical cell))
+        (false-premise (make-hypothetical cell)))
     (define (amb-choose)
       (let ((reasons-against-true
              (filter all-premises-in?
@@ -68,10 +58,6 @@
     (define me
       (propagator cell '() amb-choose
                   `(binary-amb ,(name cell))))
-    (eq-put! true-premise 'amb-premise me)
-    (eq-put! false-premise 'amb-premise me)
-    (eq-put! true-premise 'opposite false-premise)
-    (eq-put! false-premise 'opposite true-premise)
     (let ((r (list me)))
       ((constant
         (make-tms
@@ -79,7 +65,7 @@
                (supported #f (list false-premise) r))))
        cell)
       me)))
-
+
 (define (process-contradictions nogoods reasons complaining-cell)
   (process-one-contradiction
    (car (sort-by nogoods
@@ -87,8 +73,7 @@
             (length (filter hypothetical? nogood)))))
    reasons
    complaining-cell))
-
-
+
 (define *debugging-contradiction* #f)
 
 (define (process-one-contradiction nogood reasons complaining-cell)
@@ -108,14 +93,14 @@
 (define (assimilate-nogood! premise new-nogood)
   (let ((item (delq premise new-nogood))
         (set (premise-nogoods premise)))
-    (if (any (lambda (old) (lset<= equal? old item)) set)
+    (if (any (lambda (old) (lset<= eq? old item)) set)
         #f
         (let ((subsumed
-               (filter (lambda (old) (lset<= equal? item old))
+               (filter (lambda (old) (lset<= eq? item old))
                        set)))
           (set-premise-nogoods! premise
-            (lset-adjoin equal?
-              (lset-difference equal? set subsumed) item))))))
+            (lset-adjoin eq?
+              (lset-difference eq? set subsumed) item))))))
 
 
 (define *number-of-calls-to-fail* 0)

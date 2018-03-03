@@ -64,10 +64,7 @@
 
 (define *universal-ancestor*)
 (define *my-parent*)
-(define *substitutions*)
-(define *premise-outness*)
-(define *plunk-counter*)
-(define *justification-memory*)
+(define *posted-equations*)
 
 (define (initialize-scheduler)
   (clear-alerted-propagators!)
@@ -77,12 +74,12 @@
   (set! *premise-outness* (make-eq-hash-table))
   (set! *propagators-ever-alerted-list*
 	(list '*propagators-ever-alerted-list*))
+  (set! maybe-equation
+        (memoize-multi-arg-equal %maybe-equation))
   (set! *universal-ancestor* (list '*universal-ancestor*))
   (set! *my-parent* *universal-ancestor*)
-  (set! *substitutions* '())
-  (set! *justification-memory* '())
+  (set! *posted-equations* '())
   (set! *number-of-calls-to-fail* 0)
-  (set! *plunk-counter* 0)
   'ok)
 
 (define (any-propagators-alerted?)
@@ -91,7 +88,7 @@
 (define (clear-alerted-propagators!)
   (set! *alerted-propagators* (make-strong-eq-hash-table))
   (set! *alerted-propagator-list* (list '*alerted-propagator-list*)))
-
+
 ;; Turning this off makes the order in which propagators are run vary
 ;; chaotically.  That causes the bridge rectifier to fail sporadically
 ;; (i.e. depending on whether any source files were compiled in the
@@ -112,8 +109,7 @@
 
 (define (push! headed-list thing)
   (set-cdr! headed-list (cons thing (cdr headed-list))))
-
-
+
 (define (ordered-key-list table lst)
   (if *predictable-run-order*
       (list-copy (cdr lst))

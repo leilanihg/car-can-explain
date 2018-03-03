@@ -1,22 +1,21 @@
 ;;; ----------------------------------------------------------------------
-;;; Copyright 2016 Alexey Radul and Gerald Jay Sussman
+;;; Copyright 2008 Alexey Radul and Gerald Jay Sussman.
 ;;; ----------------------------------------------------------------------
-;;; This file is part of New Propagator Prototype.  It is derived from
-;;; the Artistic Propagator Prototype previously developed by Alexey
-;;; Radul and Gerald Jay Sussman.
+;;; This file is part of Artistic Propagator Prototype.
 ;;; 
-;;; New Propagator Prototype is free software; you can redistribute it
-;;; and/or modify it under the terms of the GNU General Public License
-;;; as published by the Free Software Foundation, either version 3 of
-;;; the License, or (at your option) any later version.
+;;; Artistic Propagator Prototype is free software; you can
+;;; redistribute it and/or modify it under the terms of the GNU
+;;; General Public License as published by the Free Software
+;;; Foundation, either version 3 of the License, or (at your option)
+;;; any later version.
 ;;; 
-;;; New Propagator Prototype is distributed in the hope that it will
-;;; be useful, but WITHOUT ANY WARRANTY; without even the implied
+;;; Artistic Propagator Prototype is distributed in the hope that it
+;;; will be useful, but WITHOUT ANY WARRANTY; without even the implied
 ;;; warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 ;;; See the GNU General Public License for more details.
 ;;; 
 ;;; You should have received a copy of the GNU General Public License
-;;; along with New Artistic Propagator Prototype.  If not, see
+;;; along with Artistic Propagator Prototype.  If not, see
 ;;; <http://www.gnu.org/licenses/>.
 ;;; ----------------------------------------------------------------------
 
@@ -73,16 +72,16 @@
 
 (define p:square squarer)
 (define p:sqrt sqrter)
-
+
 (define p:exp (function->propagator-constructor g:exp))
 (define p:log (function->propagator-constructor g:log))
 
 (define =? (function->propagator-constructor generic-=))
-(define <? (function->propagator-constructor generic-< '< apply-comparator))
-(define >? (function->propagator-constructor generic-> '> apply-comparator))
-(define <=? (function->propagator-constructor generic-<= '<= apply-comparator))
-(define >=? (function->propagator-constructor generic->= '>= apply-comparator))
-
+(define <? (function->propagator-constructor generic-<))
+(define >? (function->propagator-constructor generic->))
+(define <=? (function->propagator-constructor generic-<=))
+(define >=? (function->propagator-constructor generic->=))
+
 (define inverter (function->propagator-constructor generic-not))
 (define conjoiner-dumb (function->propagator-constructor generic-and))
 (define disjoiner-dumb (function->propagator-constructor generic-or))
@@ -129,7 +128,7 @@
     (propagator (list p if-true if-false) output
       (lambda ()
         (let ((predicate (content p)))
-          (if (nothingness? predicate)
+          (if (nothing? predicate)
               'done
               (add-content
                output
@@ -152,7 +151,7 @@
     (propagator (list p if-true) output
       (lambda ()
         (let ((predicate (content p)))
-          (if (nothingness? predicate)
+          (if (nothing? predicate)
               'done
                (if (generic-true? predicate)
                    (add-content output

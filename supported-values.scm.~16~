@@ -56,12 +56,6 @@
         (;; v1 implies v2 iff v1=v2.
          (and (number? v1) (number? v2))
          (default-equal? v1 v2))
-        #| ;; Makes multi-plunk-test fail quadratically!
-        ((and (number? v1) (abstract-number? v2))
-         #t)
-        ((and (number? v2) (abstract-number? v1))
-         #f)
-        |#
         (;; v1 implies v2 iff v1=v2.
          (or (abstract-number? v1) (abstract-number? v2))
          (equivalent-values? v1 v2))

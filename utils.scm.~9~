@@ -193,7 +193,7 @@
 (define (thing path)
   (cond ((null? path)
 	 *universal-ancestor*)
-	((eq? (car path) *universal-ancestor*)
+	((equal? (car path) *universal-ancestor*)
 	 *universal-ancestor*)
 	(else
 	 (find (lambda (kid)
@@ -210,18 +210,12 @@
 	    (caadr given)
 	    (car given))
 	given))
-  (cond ((eq? thing *universal-ancestor*) '())
-        ((hypothetical? thing)
-         `(hypothetical 
-           ,(hypothetical-name thing)
-           ,@(if (cell? (hypothetical-amb-cell thing))
-                 (list (name (hypothetical-amb-cell thing)))
-                 '())))
-        (else
-         (let ((p (parent thing)))
-           (if p
-               (let ((surname (nickname p))
-                     (given (given-name thing)))
-                 (cons (short given) surname))
-               (list (short (given-name thing))))))))
+  (if (eq? thing *universal-ancestor*)
+      '()
+      (let ((p (parent thing)))
+        (if p
+            (let ((surname (nickname p))
+		  (given (given-name thing)))
+	      (cons (short given) surname))
+            (list (short (given-name thing)))))))
 

@@ -1,22 +1,21 @@
 ;;; ----------------------------------------------------------------------
-;;; Copyright 2016 Alexey Radul and Gerald Jay Sussman
+;;; Copyright 2009 Massachusetts Institute of Technology.
 ;;; ----------------------------------------------------------------------
-;;; This file is part of New Propagator Prototype.  It is derived from
-;;; the Artistic Propagator Prototype previously developed by Alexey
-;;; Radul and Gerald Jay Sussman.
+;;; This file is part of Propagator Network Prototype.
 ;;; 
-;;; New Propagator Prototype is free software; you can redistribute it
-;;; and/or modify it under the terms of the GNU General Public License
-;;; as published by the Free Software Foundation, either version 3 of
-;;; the License, or (at your option) any later version.
+;;; Propagator Network Prototype is free software; you can
+;;; redistribute it and/or modify it under the terms of the GNU
+;;; General Public License as published by the Free Software
+;;; Foundation, either version 3 of the License, or (at your option)
+;;; any later version.
 ;;; 
-;;; New Propagator Prototype is distributed in the hope that it will
-;;; be useful, but WITHOUT ANY WARRANTY; without even the implied
+;;; Propagator Network Prototype is distributed in the hope that it
+;;; will be useful, but WITHOUT ANY WARRANTY; without even the implied
 ;;; warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 ;;; See the GNU General Public License for more details.
 ;;; 
 ;;; You should have received a copy of the GNU General Public License
-;;; along with New Artistic Propagator Prototype.  If not, see
+;;; along with Propagator Network Prototype.  If not, see
 ;;; <http://www.gnu.org/licenses/>.
 ;;; ----------------------------------------------------------------------
 
@@ -76,16 +75,12 @@
   (show-value cell (tms-query (->tms (content cell)))))
 
 (define (show-value cell v&s)
-  (if (nothingness? v&s)
+  (if (nothing? v&s)
       `(,(nickname cell) (has-value ,v&s))
       `(,(nickname cell)
-        (has-value ,(g:simplify (v&s-value v&s)))
-        (because ,@(show-reasons (v&s-reasons v&s)))
+        (has-value ,(v&s-value v&s))
+        (because ,@(map name (v&s-reasons v&s)))
         (depends-on ,@(map nickname (v&s-support v&s))))))
-
-(define (show-reasons reasons)
-  (filter (lambda (x) (not (null? x)))
-	  (map name reasons)))
 
 (define (explain cell)
   (assert (cell? cell) "Can only explain a cell.")
@@ -98,13 +93,10 @@
               (cons (show-value cell val)
                     (append-map
                      (lambda (reason)
-		       (cond ((eq? reason *universal-ancestor*)
-			      '())
-			     ((propagator? reason)
-			      (append-map walk
-					  (propagator-inputs reason)))
-			     (else
-			      (list reason))))
+                       (if (eq? reason *universal-ancestor*)
+                           '()
+                           (append-map walk
+                                       (propagator-inputs reason))))
                      (v&s-reasons val))))
             '())))
     (walk cell)))

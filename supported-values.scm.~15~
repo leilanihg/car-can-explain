@@ -56,12 +56,6 @@
         (;; v1 implies v2 iff v1=v2.
          (and (number? v1) (number? v2))
          (default-equal? v1 v2))
-        #| ;; Makes multi-plunk-test fail quadratically!
-        ((and (number? v1) (abstract-number? v2))
-         #t)
-        ((and (number? v2) (abstract-number? v1))
-         #f)
-        |#
         (;; v1 implies v2 iff v1=v2.
          (or (abstract-number? v1) (abstract-number? v2))
          (equivalent-values? v1 v2))
@@ -133,11 +127,11 @@
 (define equivalent-values? generic-=)
 
 (define (more-informative-support? v&s1 v&s2)
-  (and (not (lset= equal? (v&s-support v&s1) (v&s-support v&s2)))
-       (lset<= equal? (v&s-support v&s1) (v&s-support v&s2))))
+  (and (not (lset= eq? (v&s-support v&s1) (v&s-support v&s2)))
+       (lset<= eq? (v&s-support v&s1) (v&s-support v&s2))))
 
 (define (merge-supports . v&ss)
-  (apply lset-union equal? (map v&s-support v&ss)))
+  (apply lset-union eq? (map v&s-support v&ss)))
 
 (define (merge-reasons . v&ss)
   (apply lset-union equal? (map v&s-reasons v&ss)))

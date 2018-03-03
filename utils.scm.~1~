@@ -42,9 +42,6 @@
   (cond ((null? object) object)
 	((pair? object) object)
 	(else (list object))))
-
-(define (lset< = s1 s2)
-  (and (lset<= = s1 s2) (not (lset= = s1 s2))))
 
 (define (identity x) x)
 
@@ -83,39 +80,16 @@
       (set! count (+ count 1))
       (symbol name count))
     the-generator))
-
-(define (hash-table-intern! table key get-value)
-  (or (hash-table-ref/default table key #f)
-      (let ((value (get-value)))
-        (hash-table-set! table key value)
-        value)))
-
-;;; Needed for SRFI 69:
-(define hash
-  (access hash (->environment '(runtime hash-table))))
-
-(define (hash-by-eqv object #!optional modulus)
-  (if (default-object? modulus)
-      (eqv-hash object)
-      (eqv-hash-mod object modulus)))
 
 (define (any? x) #t)
 
-(define (numeric? x)
-  (or (number? x) (abstract-number? x)))
-
-(define *equality-tolerance* 1e-15)
-
-(define (default-equal? x y #!optional tolerance)
+(define (default-equal? x y)
   (or (eq? x y)
       (if (and (number? x) (number? y))
-	  (if (and (exact? x) (exact? y))
-	      (= x y)
-	      (close-enuf? x y
-			   (if (default-object? tolerance)
-			       *equality-tolerance*
-			       tolerance)))
-	  (equal? x y))))
+          (if (and (exact? x) (exact? y))
+              (= x y)
+              (close-enuf? x y 1e-10))
+          (equal? x y))))
 
 (define (close-enuf? h1 h2 #!optional tolerance scale)
   (if (default-object? tolerance)
@@ -193,7 +167,7 @@
 (define (thing path)
   (cond ((null? path)
 	 *universal-ancestor*)
-	((eq? (car path) *universal-ancestor*)
+	((equal? (car path) *universal-ancestor*)
 	 *universal-ancestor*)
 	(else
 	 (find (lambda (kid)
@@ -210,18 +184,12 @@
 	    (caadr given)
 	    (car given))
 	given))
-  (cond ((eq? thing *universal-ancestor*) '())
-        ((hypothetical? thing)
-         `(hypothetical 
-           ,(hypothetical-name thing)
-           ,@(if (cell? (hypothetical-amb-cell thing))
-                 (list (name (hypothetical-amb-cell thing)))
-                 '())))
-        (else
-         (let ((p (parent thing)))
-           (if p
-               (let ((surname (nickname p))
-                     (given (given-name thing)))
-                 (cons (short given) surname))
-               (list (short (given-name thing))))))))
+  (if (eq? thing *universal-ancestor*)
+      '()
+      (let ((p (parent thing)))
+        (if p
+            (let ((surname (nickname p))
+		  (given (given-name thing)))
+	      (cons (short given) surname))
+            (list (short (given-name thing)))))))
 

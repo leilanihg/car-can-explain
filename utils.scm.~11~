@@ -212,11 +212,7 @@
 	given))
   (cond ((eq? thing *universal-ancestor*) '())
         ((hypothetical? thing)
-         `(hypothetical 
-           ,(hypothetical-name thing)
-           ,@(if (cell? (hypothetical-amb-cell thing))
-                 (list (name (hypothetical-amb-cell thing)))
-                 '())))
+         `(hypothetical ,(name (cadr thing))))
         (else
          (let ((p (parent thing)))
            (if p
