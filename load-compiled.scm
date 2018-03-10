@@ -11,10 +11,10 @@
 ;;; Foundation, either version 3 of the License, or (at your option)
 ;;; any later version.
 ;;; 
-;;; New Artistic Propagator Prototype is distributed in the hope that it
-;;; will be useful, but WITHOUT ANY WARRANTY; without even the implied
-;;; warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-;;; See the GNU General Public License for more details.
+;;; New Artistic Propagator Prototype is distributed in the hope that
+;;; it will be useful, but WITHOUT ANY WARRANTY; without even the
+;;; implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+;;; PURPOSE.  See the GNU General Public License for more details.
 ;;; 
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with New Artistic Propagator Prototype.  If not, see
@@ -55,50 +55,41 @@
        thunk)
       (thunk)))
 
-(define (load-relative filename)
+(define (load-relative-compiled filename)
   (self-relatively
    (lambda ()
-     (load filename user-propagator-environment))))
+     (load-compiled filename user-propagator-environment))))
 
-(load-relative "sugar.scm")
+(load-relative "sugar")
 
 (for-each
- load-relative
- '("utils.scm"
-   ;; "memoizers.scm"     ;unused
-   "eq-properties.scm"    ;supplied by scmutils
-   "sugar.scm"
-   ;; "ghelper.scm"       ;supplied by scmutils
-   "genops.scm"
-   "cells.scm"            ;defines merge generic operator
+ load-relative-compiled
+ '("utils"
+   ;; "memoizers"     ;unused
+   "eq-properties"    ;supplied by scmutils except for eq-delete
+   "sugar"
+   ;;"ghelper"        ;supplied by scmutils
+   "genops"
+   "cells"            ;defines merge generic operator
 
-   "intervals.scm"
-   "qualitative.scm"
-   "qualitative-action.scm"
-   "qualitative-direction.scm"
-   "qualitative-position.scm"
-   "log-snapshot.scm"
-   "log-interval-qual.scm"
-   
-   "propagators.scm"
-   "primitive-propagators.scm"
-   "constraint-propagators.scm"
-   "supported-values.scm"
-   "tms.scm"
-   "search.scm"
-   "plunk-and-solve.scm"
-   "ui.scm"
-   "scheduler.scm"
+   "intervals"
+   "propagators"
+   "primitive-propagators"
+   "constraint-propagators"
+   "supported-values"
+   "tms"
+   "search"
+   "plunk-and-solve"
+   "ui"
+   "scheduler"
 
    ;; Test cases
-   ;"puzzle-utilities.scm"
-   ;"new-examples-test.scm"
-   "electric.scm"
-   "car-environment.scm"
-   "vehicle.accessors.scm"))
-
+   "puzzle-utilities"
+   "new-examples-test"
+   "electric"))
 
 (stop-scmutils-print)
 ((access initialize-scheduler user-propagator-environment))
 (ge user-propagator-environment)
+
 

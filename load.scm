@@ -95,7 +95,7 @@
    ;"new-examples-test.scm"
    "electric.scm"
    "car-environment.scm"
-   "vehicle.accessors.scm"))
+   "vehicle-accessors.scm"))
 
 
 (stop-scmutils-print)
